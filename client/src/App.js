@@ -1,0 +1,156 @@
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import Login from './pages/Login/Login';
+import Dashboard from './pages/Dashboard/Dashboard';
+import Employees from './pages/Employees/Employees';
+import Attendance from './pages/Attendance/Attendance';
+import Leaves from './pages/Leaves/Leaves';
+import MyAttendance from './pages/MyAttendance/MyAttendance';
+import MyLeaves from './pages/MyLeaves/MyLeaves';
+import Tasks from './pages/Tasks/Tasks';
+import MyTasks from './pages/MyTasks/MyTasks';
+
+// Protected Route Component
+const ProtectedRoute = ({ children, adminOnly = false }) => {
+  const { isAuthenticated, isAdmin, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="loader-container" style={{ minHeight: '100vh' }}>
+        <div className="loader"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (adminOnly && !isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+// Public Route (redirect if already logged in)
+const PublicRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="loader-container" style={{ minHeight: '100vh' }}>
+        <div className="loader"></div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public Routes */}
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        }
+      />
+
+      {/* Protected Routes - All Users */}
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Protected Routes - Admin Only */}
+      <Route
+        path="/employees"
+        element={
+          <ProtectedRoute adminOnly>
+            <Employees />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/attendance"
+        element={
+          <ProtectedRoute adminOnly>
+            <Attendance />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/leaves"
+        element={
+          <ProtectedRoute adminOnly>
+            <Leaves />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tasks"
+        element={
+          <ProtectedRoute adminOnly>
+            <Tasks />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Protected Routes - Employee Only */}
+      <Route
+        path="/my-attendance"
+        element={
+          <ProtectedRoute>
+            <MyAttendance />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-leaves"
+        element={
+          <ProtectedRoute>
+            <MyLeaves />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-tasks"
+        element={
+          <ProtectedRoute>
+            <MyTasks />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Default Route */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
+
+export default App;

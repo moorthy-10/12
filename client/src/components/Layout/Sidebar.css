@@ -1,0 +1,133 @@
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background: #101010;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    box-shadow: var(--shadow-lg);
+}
+
+.sidebar-header {
+    padding: 2rem 1.5rem;
+    border-bottom: 1px solid rgba(84, 84, 84, 0.3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.logo-link {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.logo-link:hover {
+    transform: scale(1.05);
+    opacity: 0.9;
+}
+
+.logo-image {
+    max-width: 160px;
+    width: 80%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+}
+
+.sidebar-nav {
+    flex: 1;
+    padding: 1.5rem 1rem;
+    overflow-y: auto;
+}
+
+.sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.875rem 1rem;
+    margin-bottom: 0.5rem;
+    color: #ffffff;
+    text-decoration: none;
+    border-radius: var(--radius-lg);
+    transition: var(--transition);
+    font-weight: 500;
+    font-size: 0.9375rem;
+}
+
+.sidebar-link:hover {
+    background: rgba(84, 84, 84, 0.2);
+    color: #ffffff;
+    transform: translateX(4px);
+}
+
+.sidebar-link.active {
+    background: var(--primary);
+    color: #000;
+    box-shadow: 0 4px 12px rgba(19, 237, 12, 0.862);
+    font-weight: 600;
+}
+
+.sidebar-icon {
+    font-size: 1.25rem;
+    width: 1.5rem;
+    text-align: center;
+}
+
+.sidebar-label {
+    flex: 1;
+}
+
+.sidebar-footer {
+    padding: 1rem;
+    border-top: 1px solid rgba(84, 84, 84, 0.3);
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.75rem;
+    background: rgba(84, 84, 84, 0.15);
+    border-radius: var(--radius-lg);
+}
+
+.user-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--gray-600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: white;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.user-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name {
+    color: #ffffff;
+    font-weight: 500;
+    font-size: 0.875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-role {
+    color: #eee8e800;
+    font-size: 0.75rem;
+    text-transform: capitalize;
+}

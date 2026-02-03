@@ -1,0 +1,15 @@
+.main-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.main-content {
+    flex: 1;
+    margin-left: var(--sidebar-width);
+    padding-top: var(--header-height);
+}
+
+.page-content {
+    padding: 2rem;
+    max-width: 1600px;
+}
