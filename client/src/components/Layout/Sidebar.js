@@ -7,18 +7,18 @@ const Sidebar = () => {
     const { user, isAdmin } = useAuth();
 
     const adminMenuItems = [
-        { path: '/dashboard', icon: '📊', label: 'Dashboard' },
-        { path: '/employees', icon: '👥', label: 'Employees' },
-        { path: '/attendance', icon: '📅', label: 'Attendance' },
-        { path: '/leaves', icon: '🏖️', label: 'Leave Requests' },
-        { path: '/tasks', icon: '📋', label: 'Tasks' },
+        { path: '/dashboard', label: 'Dashboard' },
+        { path: '/employees', label: 'Employees' },
+        { path: '/attendance', label: 'Attendance' },
+        { path: '/leaves', label: 'Leave Requests' },
+        { path: '/tasks', label: 'Tasks' },
     ];
 
     const employeeMenuItems = [
-        { path: '/dashboard', icon: '📊', label: 'Dashboard' },
-        { path: '/my-attendance', icon: '📅', label: 'My Attendance' },
-        { path: '/my-leaves', icon: '🏖️', label: 'My Leaves' },
-        { path: '/my-tasks', icon: '📋', label: 'My Tasks' },
+        { path: '/dashboard', label: 'Dashboard' },
+        { path: '/my-attendance', label: 'My Attendance' },
+        { path: '/my-leaves', label: 'My Leaves' },
+        { path: '/my-tasks', label: 'My Tasks' },
     ];
 
     const menuItems = isAdmin ? adminMenuItems : employeeMenuItems;
@@ -42,7 +42,6 @@ const Sidebar = () => {
                         to={item.path}
                         className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                     >
-                        <span className="sidebar-icon">{item.icon}</span>
                         <span className="sidebar-label">{item.label}</span>
                     </NavLink>
                 ))}

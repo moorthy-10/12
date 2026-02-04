@@ -2,7 +2,7 @@ import './Employees.css';
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import Modal from '../../components/Modal/Modal';
-import { userAPI } from '../../api/api';
+import { userAPI, adminAPI } from '../../api/api';
 
 const Employees = () => {
     const [employees, setEmployees] = useState([]);
@@ -216,18 +216,24 @@ const EmployeeModal = ({ employee, onClose, onSuccess }) => {
 
         try {
             if (isEditing) {
+                // Edit existing employee - use the standard update endpoint
                 await userAPI.update(employee.id, formData);
+                alert('Employee updated successfully');
             } else {
-                if (!formData.password || formData.password.length < 6) {
-                    setError('Password must be at least 6 characters');
-                    setLoading(false);
-                    return;
-                }
-                await userAPI.create(formData);
+                // Create new employee - use the admin endpoint
+                // Only send name and email (password is auto-generated on backend)
+                const response = await adminAPI.createUser({
+                    name: formData.name,
+                    email: formData.email
+                });
+
+                // Show success message indicating email was sent
+                alert(response.data.message || 'User created successfully and credentials have been sent via email');
             }
             onSuccess();
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to save employee');
+            const errorMessage = err.response?.data?.message || 'Failed to save employee';
+            setError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -256,6 +262,12 @@ const EmployeeModal = ({ employee, onClose, onSuccess }) => {
                     </div>
                 )}
 
+                {!isEditing && (
+                    <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#e3f2fd', borderRadius: 'var(--radius)', color: '#1976d2' }}>
+                        ℹ️ A secure password will be automatically generated and sent to the employee's email address.
+                    </div>
+                )}
+
                 <div className="form-group">
                     <label className="form-label">Full Name *</label>
                     <input
@@ -279,20 +291,6 @@ const EmployeeModal = ({ employee, onClose, onSuccess }) => {
                         required
                     />
                 </div>
-
-                {!isEditing && (
-                    <div className="form-group">
-                        <label className="form-label">Password * (min 6 characters)</label>
-                        <input
-                            type="password"
-                            name="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            className="form-input"
-                            required
-                        />
-                    </div>
-                )}
 
                 <div className="form-group">
                     <label className="form-label">Role *</label>

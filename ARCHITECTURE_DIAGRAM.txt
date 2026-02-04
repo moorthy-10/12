@@ -1,0 +1,262 @@
+# System Architecture Diagram - Admin Create User Flow
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                 FRONTEND                                      │
+│                           (React Application)                                 │
+│                                                                               │
+│  ┌─────────────────┐         ┌──────────────────┐                           │
+│  │  Admin Panel    │────────▶│  Create User     │                           │
+│  │  Dashboard      │         │  Button/Form     │                           │
+│  └─────────────────┘         └──────────────────┘                           │
+│                                       │                                       │
+│                                       │ POST { name, email }                 │
+│                                       │ Authorization: Bearer <admin-token>  │
+│                                       ▼                                       │
+└───────────────────────────────────────┼───────────────────────────────────────┘
+                                        │
+                       ════════════════════════════════
+                            HTTP/HTTPS Request
+                       ════════════════════════════════
+                                        │
+                                        ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                                 BACKEND                                       │
+│                          (Node.js + Express)                                  │
+│                                                                               │
+│  ┌────────────────────────────────────────────────────────────────┐          │
+│  │                    POST /api/admin/create-user                 │          │
+│  │                       (routes/admin.js)                        │          │
+│  └────────────────────────────────────────────────────────────────┘          │
+│                                 │                                             │
+│     ┌──────────────────────────┼──────────────────────────┐                 │
+│     │                          ▼                           │                 │
+│     │  ┌──────────────────────────────────────────┐       │                 │
+│     │  │  1. JWT Authentication Middleware        │       │                 │
+│     │  │     - Verify token                       │       │                 │
+│     │  │     - Extract user info                  │       │                 │
+│     │  └──────────────────────────────────────────┘       │                 │
+│     │                     │                                │                 │
+│     │                     ▼                                │                 │
+│     │  ┌──────────────────────────────────────────┐       │                 │
+│     │  │  2. Admin Authorization Middleware       │       │                 │
+│     │  │     - Check if role === 'admin'          │       │                 │
+│     │  └──────────────────────────────────────────┘       │                 │
+│     │                     │                                │                 │
+│     │                     ▼                                │                 │
+│     │  ┌──────────────────────────────────────────┐       │                 │
+│     │  │  3. Input Validation                     │       │                 │
+│     │  │     - Validate name (required)           │       │                 │
+│     │  │     - Validate email (format)            │       │                 │
+│     │  └──────────────────────────────────────────┘       │                 │
+│     │                     │                                │                 │
+│     │                     ▼                                │                 │
+│     │  ┌──────────────────────────────────────────┐       │                 │
+│     │  │  4. Check N8N_WEBHOOK_URL                │       │                 │
+│     │  │     - Read from process.env              │       │                 │
+│     │  │     - Return 500 if not configured       │       │                 │
+│     │  └──────────────────────────────────────────┘       │                 │
+│     │                     │                                │                 │
+│     │                     ▼                                │                 │
+│     │  ┌──────────────────────────────────────────┐       │                 │
+│     │  │  5. Database: Check Duplicate Email      │◀──────┼────┐            │
+│     │  │     SELECT * FROM users                  │       │    │            │
+│     │  │     WHERE email = ?                      │       │    │            │
+│     │  └──────────────────────────────────────────┘       │    │            │
+│     │                     │                                │    │            │
+│     │                     │ No duplicate                   │    │            │
+│     │                     ▼                                │    │            │
+│     │  ┌──────────────────────────────────────────┐       │    │            │
+│     │  │  6. Generate Secure Password             │       │    │            │
+│     │  │     - crypto.randomInt()                 │       │    │            │
+│     │  │     - 12 chars (uppercase, lowercase,    │       │    │            │
+│     │  │       numbers, special chars)            │       │    │            │
+│     │  └──────────────────────────────────────────┘       │    │            │
+│     │                     │                                │    │            │
+│     │                     ▼                                │    │            │
+│     │  ┌──────────────────────────────────────────┐       │    │            │
+│     │  │  7. Hash Password with bcrypt            │       │    │            │
+│     │  │     - bcrypt.hash(password, 10)          │       │    │            │
+│     │  └──────────────────────────────────────────┘       │    │            │
+│     │                     │                                │    │            │
+│     │                     ▼                                │    │            │
+│     │  ┌──────────────────────────────────────────┐       │    │            │
+│     │  │  8. Insert User into Database            │◀──────┼────┘            │
+│     │  │     INSERT INTO users                    │       │  SQLite         │
+│     │  │     (name, email, password, role,        │       │  Database       │
+│     │  │      status, forcePasswordChange)        │       │                 │
+│     │  │     VALUES (?, ?, ?, 'employee',         │       │                 │
+│     │  │             'active', 1)                 │       │                 │
+│     │  └──────────────────────────────────────────┘       │                 │
+│     │                     │                                │                 │
+│     │                     │ User created                   │                 │
+│     │                     ▼                                │                 │
+│     │  ┌──────────────────────────────────────────┐       │                 │
+│     │  │  9. Trigger n8n Webhook                  │       │                 │
+│     │  │     - axios.post(N8N_WEBHOOK_URL)        │       │                 │
+│     │  │     - Payload: { name, email, password } │───────┼─────────┐       │
+│     │  │     - Timeout: 5 seconds                 │       │         │       │
+│     │  │     - Headers: Content-Type: JSON        │       │         │       │
+│     │  └──────────────────────────────────────────┘       │         │       │
+│     │                     │                                │         │       │
+│     │         ┌───────────┴────────────┐                  │         │       │
+│     │         ▼                        ▼                   │         │       │
+│     │  ┌─────────────┐        ┌──────────────┐            │         │       │
+│     │  │  Success    │        │  Webhook     │            │         │       │
+│     │  │  (Continue) │        │  Failed      │            │         │       │
+│     │  └──────┬──────┘        └──────┬───────┘            │         │       │
+│     │         │                      │                     │         │       │
+│     │         │                      │ Return 201 with     │         │       │
+│     │         │                      │ warning             │         │       │
+│     │         ▼                      ▼                     │         │       │
+│     │  ┌──────────────────────────────────────────┐       │         │       │
+│     │  │  10. Return Success Response             │       │         │       │
+│     │  │      - 201 Created                       │       │         │       │
+│     │  │      - User data (NO password)           │       │         │       │
+│     │  │      - Success message                   │       │         │       │
+│     │  └──────────────────────────────────────────┘       │         │       │
+│     │                     │                                │         │       │
+│     └─────────────────────┼────────────────────────────────┘         │       │
+│                           ▼                                          │       │
+└───────────────────────────┼──────────────────────────────────────────┼───────┘
+                            │                                          │
+        ════════════════════════════════                              │
+            HTTP Response (JSON)                                      │
+        ════════════════════════════════                              │
+                            │                                          │
+                            ▼                                          │
+┌──────────────────────────────────────────────────────────────────┐  │
+│                         FRONTEND                                  │  │
+│  ┌────────────────────────────────────────────────────────┐      │  │
+│  │  - Display success message                             │      │  │
+│  │  - Close modal/form                                    │      │  │
+│  │  - Refresh user list                                   │      │  │
+│  │  - Show notification: "Credentials sent via email"     │      │  │
+│  └────────────────────────────────────────────────────────┘      │  │
+└──────────────────────────────────────────────────────────────────┘  │
+                                                                      │
+                            ════════════════════════════════          │
+                                HTTP POST Request                     │
+                            ════════════════════════════════          │
+                                                                      │
+                                                                      ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           n8n WORKFLOW                                        │
+│                      (Self-Hosted Instance)                                   │
+│                                                                               │
+│  ┌─────────────────────────────────────────────────────────────────┐         │
+│  │  Webhook Node: POST /webhook/create-user                        │         │
+│  │  ┌──────────────────────────────────────────────────┐           │         │
+│  │  │  Receives:                                       │           │         │
+│  │  │  {                                               │           │         │
+│  │  │    "name": "John Doe",                           │           │         │
+│  │  │    "email": "john@example.com",                  │           │         │
+│  │  │    "password": "aB3$xY9zK2mP"                    │           │         │
+│  │  │  }                                               │           │         │
+│  │  └──────────────────────────────────────────────────┘           │         │
+│  └─────────────────────────────┬───────────────────────────────────┘         │
+│                                │                                              │
+│                                ▼                                              │
+│  ┌─────────────────────────────────────────────────────────────────┐         │
+│  │  Gmail / SMTP / Email Node                                      │         │
+│  │  ┌──────────────────────────────────────────────────┐           │         │
+│  │  │  To: {{$json.email}}                             │           │         │
+│  │  │  Subject: "Welcome to GenLab"                    │           │         │
+│  │  │  Body:                                           │           │         │
+│  │  │    Hello {{$json.name}},                         │           │         │
+│  │  │                                                  │           │         │
+│  │  │    Login Credentials:                            │           │         │
+│  │  │    Email: {{$json.email}}                        │           │         │
+│  │  │    Password: {{$json.password}}                  │           │         │
+│  │  │                                                  │           │         │
+│  │  │    Please login and change your password.        │           │         │
+│  │  └──────────────────────────────────────────────────┘           │         │
+│  └─────────────────────────────┬───────────────────────────────────┘         │
+│                                │                                              │
+│                                ▼                                              │
+│                        Email sent via SMTP                                    │
+└───────────────────────────────┼───────────────────────────────────────────────┘
+                                │
+                                │
+                                ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          EMAIL INBOX                                          │
+│                         (User's Gmail)                                        │
+│                                                                               │
+│  ┌─────────────────────────────────────────────────────────────────┐         │
+│  │  From: GenLab <noreply@genlab.com>                              │         │
+│  │  To: john@example.com                                            │         │
+│  │  Subject: Welcome to GenLab - Your Account Credentials          │         │
+│  │                                                                  │         │
+│  │  Hello John Doe,                                                 │         │
+│  │                                                                  │         │
+│  │  Your GenLab account has been created successfully.             │         │
+│  │                                                                  │         │
+│  │  Login Credentials:                                              │         │
+│  │  ━━━━━━━━━━━━━━━━━━━━                                           │         │
+│  │  Email: john@example.com                                         │         │
+│  │  Temporary Password: aB3$xY9zK2mP                                │         │
+│  │  ━━━━━━━━━━━━━━━━━━━━                                           │         │
+│  │                                                                  │         │
+│  │  ⚠️ IMPORTANT: Please login and change your password.            │         │
+│  │                                                                  │         │
+│  │  Login URL: https://genlab.com/login                             │         │
+│  │                                                                  │         │
+│  │  Best regards,                                                   │         │
+│  │  GenLab Team                                                     │         │
+│  └─────────────────────────────────────────────────────────────────┘         │
+└──────────────────────────────────────────────────────────────────────────────┘
+                                │
+                                │ User clicks login link
+                                ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                      USER FIRST LOGIN                                         │
+│                                                                               │
+│  1. User visits login page                                                   │
+│  2. Enters email and temporary password                                      │
+│  3. Backend validates credentials                                            │
+│  4. Backend detects forcePasswordChange = 1                                  │
+│  5. Frontend redirects to "Change Password" page                             │
+│  6. User sets new password                                                   │
+│  7. Backend updates password and sets forcePasswordChange = 0                │
+│  8. User is logged in and can access the system                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                            SECURITY LAYERS
+═══════════════════════════════════════════════════════════════════════════════
+
+Layer 1: Authentication     → JWT token required
+Layer 2: Authorization      → Admin role required
+Layer 3: Input Validation   → Email format, required fields
+Layer 4: Business Logic     → Duplicate email check
+Layer 5: Password Security  → Crypto random generation
+Layer 6: Storage Security   → Bcrypt hashing (10 rounds)
+Layer 7: Transport Security → HTTPS (production)
+Layer 8: Configuration      → Environment variables
+Layer 9: Error Handling     → No sensitive data in errors
+Layer 10: Logging          → No passwords in logs
+
+═══════════════════════════════════════════════════════════════════════════════
+                          DATA FLOW SUMMARY
+═══════════════════════════════════════════════════════════════════════════════
+
+Plain Password Visibility:
+  - Generated in backend: ✓ (in memory only)
+  - Stored in database: ✗ (hashed with bcrypt)
+  - Returned to frontend: ✗ (never)
+  - Logged to console: ✗ (never)
+  - Sent to n8n: ✓ (one time, over HTTPS)
+  - Sent in email: ✓ (one time, via SMTP)
+  - Stored in n8n logs: ⚠️ (depends on n8n config)
+
+Security Guarantees:
+  ✅ Frontend never sees the password
+  ✅ Database only has hashed password
+  ✅ n8n webhook URL never exposed to frontend
+  ✅ Only admins can create users
+  ✅ Users must change password on first login
+  ✅ All operations use async/await (no blocking)
+  ✅ 5-second timeout prevents hanging
+  ✅ Graceful failure if email service is down

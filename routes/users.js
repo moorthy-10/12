@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const axios = require('axios');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
@@ -68,7 +70,6 @@ router.get('/:id', authenticateToken, (req, res) => {
 router.post('/', authenticateToken, isAdmin, [
     body('name').notEmpty().trim(),
     body('email').isEmail().normalizeEmail(),
-    body('password').isLength({ min: 6 }),
     body('role').isIn(['admin', 'employee'])
 ], async (req, res) => {
     const errors = validationResult(req);
@@ -76,37 +77,105 @@ router.post('/', authenticateToken, isAdmin, [
         return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { name, email, password, role, department, position, phone } = req.body;
+    const { name, email, role, department, position, phone } = req.body;
 
     try {
         // Check if email already exists
         db.get('SELECT * FROM users WHERE email = ?', [email], async (err, existingUser) => {
+            if (err) {
+                console.error('❌ Database error while checking existing user:', err);
+                return res.status(500).json({ success: false, message: 'Database error' });
+            }
+
             if (existingUser) {
                 return res.status(400).json({ success: false, message: 'Email already exists' });
             }
 
-            const hashedPassword = await bcrypt.hash(password, 10);
+            // Generate secure temporary password
+            const temporaryPassword = crypto.randomBytes(12).toString('base64').slice(0, 16);
+            console.log('🔐 Generated temporary password for user:', email);
 
+            // Hash password before storing
+            const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+            console.log('🔒 Password hashed successfully');
+
+            // Create user in database
             db.run(`
-        INSERT INTO users (name, email, password, role, department, position, phone)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [name, email, hashedPassword, role, department, position, phone], function (err) {
+                INSERT INTO users (name, email, password, role, department, position, phone)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [name, email, hashedPassword, role, department, position, phone], function (err) {
                 if (err) {
+                    console.error('❌ Database error while creating user:', err);
                     return res.status(500).json({ success: false, message: 'Failed to create user' });
                 }
 
+                const userId = this.lastID;
+                console.log('✅ User created successfully in database - ID:', userId);
+
+                // Fetch created user
                 db.get('SELECT id, name, email, role, department, position, phone, status FROM users WHERE id = ?',
-                    [this.lastID],
-                    (err, user) => {
+                    [userId],
+                    async (err, user) => {
                         if (err) {
+                            console.error('❌ Failed to fetch created user:', err);
                             return res.status(500).json({ success: false, message: 'User created but failed to fetch' });
                         }
-                        res.status(201).json({ success: true, message: 'User created successfully', user });
+
+                        // Trigger n8n webhook for email notification
+                        const webhookUrl = process.env.N8N_WEBHOOK_URL;
+
+                        if (!webhookUrl) {
+                            console.warn('⚠️ N8N_WEBHOOK_URL not configured - skipping email notification');
+                            return res.status(201).json({
+                                success: true,
+                                message: 'User created successfully (email notification disabled)',
+                                user
+                            });
+                        }
+
+                        console.log('📧 Triggering n8n webhook for email notification...');
+
+                        try {
+                            await axios.post(webhookUrl, {
+                                name,
+                                email,
+                                role,
+                                temporaryPassword
+                            }, {
+                                timeout: 5000,
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            });
+
+                            console.log('✅ n8n webhook triggered successfully - Email notification sent');
+                            res.status(201).json({
+                                success: true,
+                                message: 'User created successfully and email notification sent',
+                                user
+                            });
+
+                        } catch (webhookError) {
+                            console.error('⚠️ n8n webhook failed:', webhookError.message);
+                            if (webhookError.response) {
+                                console.error('   Response status:', webhookError.response.status);
+                                console.error('   Response data:', webhookError.response.data);
+                            }
+
+                            // User creation succeeded, only email failed
+                            res.status(201).json({
+                                success: true,
+                                message: 'User created successfully but email notification failed',
+                                warning: 'Please notify the user manually',
+                                user
+                            });
+                        }
                     }
                 );
             });
         });
     } catch (error) {
+        console.error('❌ Server error during user creation:', error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });

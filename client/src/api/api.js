@@ -100,4 +100,9 @@ export const taskAPI = {
     delete: (id) => api.delete(`/tasks/${id}`)
 };
 
+// Admin APIs
+export const adminAPI = {
+    createUser: (data) => api.post('/admin/create-user', data)
+};
+
 export default api;
