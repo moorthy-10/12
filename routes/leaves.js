@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const notify = require('../utils/notify');
 
 // Get leave requests
 router.get('/', authenticateToken, (req, res) => {
@@ -232,6 +233,19 @@ router.put('/:id/review', authenticateToken, isAdmin, [
                 if (err) {
                     return res.status(500).json({ success: false, message: 'Leave request reviewed but failed to fetch' });
                 }
+
+                // Notify the employee of the decision
+                const io = req.app.get('io');
+                const emoji = status === 'approved' ? '✅' : '❌';
+                notify(io, {
+                    userId: leave.user_id,
+                    type: 'leave',
+                    title: `${emoji} Leave Request ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+                    message: `Your leave request (${leave.leave_type}, ${leave.start_date} – ${leave.end_date}) has been ${status}.${review_notes ? ` Note: ${review_notes}` : ''
+                        }`,
+                    relatedId: leave.id
+                });
+
                 res.json({ success: true, message: `Leave request ${status} successfully`, leave });
             });
         });

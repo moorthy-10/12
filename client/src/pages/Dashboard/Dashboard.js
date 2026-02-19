@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import { dashboardAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import { FaUsers, FaUserCheck, FaCalendarCheck, FaUserClock, FaHourglassHalf, FaUmbrellaBeach, FaChartLine, FaCheckCircle, FaStar } from 'react-icons/fa';
 
 const Dashboard = () => {
     const { isAdmin } = useAuth();
@@ -53,26 +54,31 @@ const Dashboard = () => {
 
 const AdminDashboard = ({ stats, activities }) => {
     const statCards = [
-        { label: 'Total Users', value: stats?.totalUsers || 0, icon: '👥', color: 'blue' },
-        { label: 'Active Users', value: stats?.activeUsers || 0, icon: '✅', color: 'green' },
-        { label: 'Today Attendance', value: stats?.todayAttendance || 0, icon: '📅', color: 'purple' },
-        { label: 'Present Today', value: stats?.presentToday || 0, icon: '✨', color: 'indigo' },
-        { label: 'Pending Leaves', value: stats?.pendingLeaves || 0, icon: '⏳', color: 'orange' },
-        { label: 'Approved Leaves (Month)', value: stats?.approvedLeavesThisMonth || 0, icon: '🏖️', color: 'pink' },
+        { label: 'Total Users', value: stats?.totalUsers || 0, icon: FaUsers, color: 'blue' },
+        { label: 'Active Users', value: stats?.activeUsers || 0, icon: FaUserCheck, color: 'green' },
+        { label: 'Today Attendance', value: stats?.todayAttendance || 0, icon: FaCalendarCheck, color: 'purple' },
+        { label: 'Present Today', value: stats?.presentToday || 0, icon: FaUserClock, color: 'indigo' },
+        { label: 'Pending Leaves', value: stats?.pendingLeaves || 0, icon: FaHourglassHalf, color: 'orange' },
+        { label: 'Approved Leaves (Month)', value: stats?.approvedLeavesThisMonth || 0, icon: FaUmbrellaBeach, color: 'pink' },
     ];
 
     return (
         <div className="dashboard">
             <div className="stats-grid">
-                {statCards.map((card, index) => (
-                    <div key={index} className={`stat-card stat-card-${card.color}`}>
-                        <div className="stat-icon">{card.icon}</div>
-                        <div className="stat-content">
-                            <div className="stat-label">{card.label}</div>
-                            <div className="stat-value">{card.value}</div>
+                {statCards.map((card, index) => {
+                    const IconComponent = card.icon;
+                    return (
+                        <div key={index} className={`stat-card stat-card-${card.color}`}>
+                            <div className="stat-icon">
+                                <IconComponent />
+                            </div>
+                            <div className="stat-content">
+                                <div className="stat-label">{card.label}</div>
+                                <div className="stat-value">{card.value}</div>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             <div className="dashboard-section">
@@ -85,9 +91,6 @@ const AdminDashboard = ({ stats, activities }) => {
                             <div className="activities-list">
                                 {activities.map((activity, index) => (
                                     <div key={index} className="activity-item">
-                                        <div className="activity-icon">
-                                            {activity.type === 'attendance' ? '📅' : '🏖️'}
-                                        </div>
                                         <div className="activity-content">
                                             <div className="activity-user">{activity.user_name}</div>
                                             <div className="activity-description">
@@ -113,11 +116,11 @@ const AdminDashboard = ({ stats, activities }) => {
 
 const EmployeeDashboard = ({ stats }) => {
     const statCards = [
-        { label: 'Total Attendance', value: stats?.totalAttendance || 0, icon: '📊', color: 'blue' },
-        { label: 'Present This Month', value: stats?.presentThisMonth || 0, icon: '✅', color: 'green' },
-        { label: 'Total Leaves', value: stats?.totalLeaves || 0, icon: '🏖️', color: 'purple' },
-        { label: 'Pending Leaves', value: stats?.pendingLeaves || 0, icon: '⏳', color: 'orange' },
-        { label: 'Approved Leaves', value: stats?.approvedLeaves || 0, icon: '✨', color: 'indigo' },
+        { label: 'Total Attendance', value: stats?.totalAttendance || 0, icon: FaChartLine, color: 'blue' },
+        { label: 'Present This Month', value: stats?.presentThisMonth || 0, icon: FaCheckCircle, color: 'green' },
+        { label: 'Total Leaves', value: stats?.totalLeaves || 0, icon: FaUmbrellaBeach, color: 'purple' },
+        { label: 'Pending Leaves', value: stats?.pendingLeaves || 0, icon: FaHourglassHalf, color: 'orange' },
+        { label: 'Approved Leaves', value: stats?.approvedLeaves || 0, icon: FaStar, color: 'indigo' },
     ];
 
     const todayAttendance = stats?.attendanceToday;
@@ -125,15 +128,20 @@ const EmployeeDashboard = ({ stats }) => {
     return (
         <div className="dashboard">
             <div className="stats-grid">
-                {statCards.map((card, index) => (
-                    <div key={index} className={`stat-card stat-card-${card.color}`}>
-                        <div className="stat-icon">{card.icon}</div>
-                        <div className="stat-content">
-                            <div className="stat-label">{card.label}</div>
-                            <div className="stat-value">{card.value}</div>
+                {statCards.map((card, index) => {
+                    const IconComponent = card.icon;
+                    return (
+                        <div key={index} className={`stat-card stat-card-${card.color}`}>
+                            <div className="stat-icon">
+                                <IconComponent />
+                            </div>
+                            <div className="stat-content">
+                                <div className="stat-label">{card.label}</div>
+                                <div className="stat-value">{card.value}</div>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             <div className="dashboard-section">

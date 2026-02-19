@@ -12,6 +12,8 @@ const Sidebar = () => {
         { path: '/attendance', label: 'Attendance' },
         { path: '/leaves', label: 'Leave Requests' },
         { path: '/tasks', label: 'Tasks' },
+        { path: '/groups', label: 'Group Chat' },
+        { path: '/calendar', label: 'Calendar' },
     ];
 
     const employeeMenuItems = [
@@ -19,6 +21,8 @@ const Sidebar = () => {
         { path: '/my-attendance', label: 'My Attendance' },
         { path: '/my-leaves', label: 'My Leaves' },
         { path: '/my-tasks', label: 'My Tasks' },
+        { path: '/groups', label: 'Group Chat' },
+        { path: '/calendar', label: 'Calendar' },
     ];
 
     const menuItems = isAdmin ? adminMenuItems : employeeMenuItems;

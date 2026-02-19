@@ -1,0 +1,446 @@
+/* ── Page layout sits inside MainLayout ─────────────────────────────────── */
+.groupchat-page {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--header-height));
+    background: var(--gray-50);
+    overflow: hidden;
+}
+
+/* ── Chat Header ─────────────────────────────────────────────────────────── */
+.chat-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.875rem 1.5rem;
+    background: white;
+    border-bottom: 1px solid var(--gray-200);
+    box-shadow: var(--shadow-sm);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.chat-header-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.chat-header-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #000;
+    font-weight: 700;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.chat-header-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-900);
+}
+
+.chat-header-members {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.chat-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* ── Connection Indicator ────────────────────────────────────────────────── */
+.socket-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+}
+
+.socket-indicator.connected {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.socket-indicator.disconnected {
+    background: var(--warning-light);
+    color: #92400e;
+}
+
+.socket-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.connected .socket-dot {
+    background: var(--success);
+    animation: pulse 2s infinite;
+}
+
+.disconnected .socket-dot {
+    background: var(--warning);
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+/* ── Chat Body ───────────────────────────────────────────────────────────── */
+.chat-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ── Members Panel ───────────────────────────────────────────────────────── */
+.members-panel {
+    width: 220px;
+    border-right: 1px solid var(--gray-200);
+    background: white;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+.members-panel-header {
+    padding: 0.875rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-500);
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.member-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.625rem 1rem;
+    border-bottom: 1px solid var(--gray-50);
+}
+
+.member-avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--gray-200);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.member-name {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--gray-900);
+}
+
+.member-role {
+    font-size: 0.7rem;
+    color: var(--gray-400);
+    text-transform: capitalize;
+}
+
+/* ── Messages Area ───────────────────────────────────────────────────────── */
+.messages-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    scroll-behavior: smooth;
+}
+
+.messages-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: auto;
+    color: var(--gray-400);
+    font-size: 0.9rem;
+}
+
+/* ── Message Bubbles ─────────────────────────────────────────────────────── */
+.msg-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    max-width: 72%;
+    animation: msgIn 0.18s ease;
+}
+
+@keyframes msgIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.msg-wrapper.mine {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.msg-wrapper.theirs {
+    align-self: flex-start;
+}
+
+.msg-avatar {
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 50%;
+    background: var(--gray-300);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    margin-bottom: 0.125rem;
+}
+
+.msg-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.msg-sender {
+    font-size: 0.7125rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    margin-left: 0.75rem;
+}
+
+.msg-bubble {
+    display: flex;
+    flex-direction: column;
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--radius-lg);
+    max-width: 100%;
+    word-break: break-word;
+    position: relative;
+}
+
+.msg-bubble.mine {
+    background: var(--primary);
+    color: #000;
+    border-bottom-right-radius: var(--radius-sm);
+}
+
+.msg-bubble.theirs {
+    background: white;
+    color: var(--gray-900);
+    box-shadow: var(--shadow-sm);
+    border-bottom-left-radius: var(--radius-sm);
+}
+
+.msg-text {
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+.msg-time {
+    font-size: 0.6875rem;
+    opacity: 0.65;
+    margin-top: 0.25rem;
+    align-self: flex-end;
+}
+
+/* ── File Attachment ─────────────────────────────────────────────────────── */
+.file-bubble {
+    padding: 0.75rem;
+    min-width: 180px;
+}
+
+.file-attachment {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.file-icon {
+    font-size: 1.75rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-name {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.25rem;
+}
+
+.file-download-link {
+    font-size: 0.75rem;
+    color: #1e40af;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.mine .file-download-link {
+    color: #1e40af;
+}
+
+/* ── Input Bar ───────────────────────────────────────────────────────────── */
+.chat-input-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 1.5rem;
+    background: white;
+    border-top: 1px solid var(--gray-200);
+    flex-shrink: 0;
+}
+
+.btn-attach {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--gray-100);
+    cursor: pointer;
+    font-size: 1.125rem;
+    transition: var(--transition);
+    border: none;
+    flex-shrink: 0;
+}
+
+.btn-attach:hover:not(.disabled) {
+    background: var(--gray-200);
+    transform: scale(1.05);
+}
+
+.btn-attach.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.chat-input {
+    flex: 1;
+    padding: 0.625rem 1rem;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 9999px;
+    font-size: 0.9rem;
+    background: var(--gray-50);
+    outline: none;
+    transition: var(--transition);
+}
+
+.chat-input:focus {
+    border-color: var(--primary);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(188, 240, 0, 0.15);
+}
+
+.chat-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-send {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #000;
+    border: none;
+    cursor: pointer;
+    font-size: 1.125rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.btn-send:hover:not(:disabled) {
+    background: var(--primary-hover);
+    transform: scale(1.05);
+}
+
+.btn-send:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Error Banner ────────────────────────────────────────────────────────── */
+.chat-error-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 1.5rem;
+    background: var(--danger-light);
+    color: #991b1b;
+    font-size: 0.8125rem;
+    flex-shrink: 0;
+}
+
+.chat-error-banner button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #991b1b;
+    font-weight: 600;
+}
+
+/* ── Access Denied / Error ───────────────────────────────────────────────── */
+.chat-error-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 5rem 2rem;
+    text-align: center;
+}
+
+.chat-error-state h3 {
+    font-size: 1.125rem;
+    color: var(--gray-700);
+}

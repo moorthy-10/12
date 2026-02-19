@@ -2,9 +2,10 @@ import './Header.css';
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import NotificationBell from './NotificationBell';
 
 const Header = ({ title }) => {
-    const { logout } = useAuth();
+    const { logout, isAdmin } = useAuth();
     const navigate = useNavigate();
 
     const handleLogout = () => {
@@ -18,6 +19,7 @@ const Header = ({ title }) => {
                 <h1 className="header-title">{title}</h1>
 
                 <div className="header-actions">
+                    <NotificationBell isAdmin={isAdmin} />
                     <button className="btn btn-secondary btn-sm" onClick={handleLogout}>
                         🚪 Logout
                     </button>

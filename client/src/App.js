@@ -10,6 +10,14 @@ import MyAttendance from './pages/MyAttendance/MyAttendance';
 import MyLeaves from './pages/MyLeaves/MyLeaves';
 import Tasks from './pages/Tasks/Tasks';
 import MyTasks from './pages/MyTasks/MyTasks';
+import Groups from './pages/Groups/Groups';
+import GroupChat from './pages/GroupChat/GroupChat';
+import CompanyCalendar from './pages/CompanyCalendar/CompanyCalendar';
+import { ChatProvider } from './chat/ChatProvider';
+import { NotificationProvider } from './context/NotificationProvider';
+import FloatingChatButton from './chat/FloatingChatButton';
+import FloatingChatWindow from './chat/FloatingChatWindow';
+import './chat/FloatingChat.css';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, adminOnly = false }) => {
@@ -136,6 +144,33 @@ function AppRoutes() {
         }
       />
 
+      {/* Group Chat - All authenticated users */}
+      <Route
+        path="/groups"
+        element={
+          <ProtectedRoute>
+            <Groups />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/groups/:id"
+        element={
+          <ProtectedRoute>
+            <GroupChat />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/calendar"
+        element={
+          <ProtectedRoute>
+            <CompanyCalendar />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Default Route */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -146,9 +181,15 @@ function AppRoutes() {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <NotificationProvider>
+        <ChatProvider>
+          <BrowserRouter>
+            <AppRoutes />
+            <FloatingChatButton />
+            <FloatingChatWindow />
+          </BrowserRouter>
+        </ChatProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

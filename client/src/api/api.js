@@ -102,7 +102,34 @@ export const taskAPI = {
 
 // Admin APIs
 export const adminAPI = {
-    createUser: (data) => api.post('/admin/create-user', data)
+    createUser: (data) => api.post('/admin/create-user', data),
+    resetPassword: (userId) => api.post(`/admin/reset-password/${userId}`)
+};
+
+// Group Chat APIs
+export const groupAPI = {
+    getAll: () => api.get('/groups'),
+    getById: (id) => api.get(`/groups/${id}`),
+    create: (data) => api.post('/groups', data),
+    getMessages: (id, params) => api.get(`/groups/${id}/messages`, { params }),
+    uploadFile: (id, formData) =>
+        api.post(`/groups/${id}/files`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        })
+};
+
+// Private Message APIs
+export const privateMessageAPI = {
+    getHistory: (userId, params) => api.get(`/private-messages/${userId}`, { params })
+};
+
+// Event Calendar APIs
+export const eventAPI = {
+    getByMonth: (month) => api.get(`/events?month=${month}`),
+    getById: (id) => api.get(`/events/${id}`),
+    create: (data) => api.post('/events', data),
+    update: (id, data) => api.put(`/events/${id}`, data),
+    delete: (id) => api.delete(`/events/${id}`)
 };
 
 export default api;

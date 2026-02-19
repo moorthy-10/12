@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const notify = require('../utils/notify');
 
 // Get tasks
 router.get('/', authenticateToken, (req, res) => {
@@ -117,6 +118,17 @@ router.post('/', authenticateToken, isAdmin, [
                 if (err) {
                     return res.status(500).json({ success: false, message: 'Task created but failed to fetch' });
                 }
+
+                // Fire notification (non-blocking, errors swallowed inside notify)
+                const io = req.app.get('io');
+                notify(io, {
+                    userId: assigned_to,
+                    type: 'task',
+                    title: '📋 New Task Assigned',
+                    message: `"${task.title}" has been assigned to you by ${task.assigned_by_name}.`,
+                    relatedId: task.id
+                });
+
                 res.status(201).json({ success: true, message: 'Task created successfully', task });
             });
         });

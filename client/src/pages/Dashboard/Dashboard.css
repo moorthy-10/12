@@ -51,15 +51,49 @@
 }
 
 .stat-icon {
-    font-size: 2.5rem;
+    font-size: 1.75rem;
     width: 4rem;
     height: 4rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--gray-50);
     border-radius: var(--radius-lg);
     flex-shrink: 0;
+    transition: var(--transition);
+}
+
+.stat-card-blue .stat-icon {
+    background: #eff6ff;
+    color: #3b82f6;
+}
+
+.stat-card-green .stat-icon {
+    background: #f0fdf4;
+    color: var(--success);
+}
+
+.stat-card-purple .stat-icon {
+    background: #faf5ff;
+    color: #a855f7;
+}
+
+.stat-card-indigo .stat-icon {
+    background: #eef2ff;
+    color: #6366f1;
+}
+
+.stat-card-orange .stat-icon {
+    background: #fff7ed;
+    color: var(--warning);
+}
+
+.stat-card-pink .stat-icon {
+    background: #fdf2f8;
+    color: #ec4899;
+}
+
+.stat-card:hover .stat-icon {
+    transform: scale(1.1);
 }
 
 .stat-content {

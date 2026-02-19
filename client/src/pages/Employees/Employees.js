@@ -10,6 +10,8 @@ const Employees = () => {
     const [filters, setFilters] = useState({ search: '', role: '', status: '' });
     const [showModal, setShowModal] = useState(false);
     const [editingEmployee, setEditingEmployee] = useState(null);
+    const [passwordInfo, setPasswordInfo] = useState(null); // { name, email, password }
+    const [resettingId, setResettingId] = useState(null);
 
     useEffect(() => {
         fetchEmployees();
@@ -56,9 +58,29 @@ const Employees = () => {
         setEditingEmployee(null);
     };
 
-    const handleModalSuccess = () => {
+    const handleModalSuccess = (tempPasswordData) => {
         fetchEmployees();
         handleModalClose();
+        if (tempPasswordData) {
+            setPasswordInfo(tempPasswordData);
+        }
+    };
+
+    const handleResetPassword = async (employee) => {
+        if (!window.confirm(`Reset password for ${employee.name}? A new temporary password will be generated.`)) return;
+        setResettingId(employee.id);
+        try {
+            const res = await adminAPI.resetPassword(employee.id);
+            setPasswordInfo({
+                name: employee.name,
+                email: employee.email,
+                password: res.data.temporaryPassword
+            });
+        } catch (err) {
+            alert(err.response?.data?.message || 'Failed to reset password');
+        } finally {
+            setResettingId(null);
+        }
     };
 
     if (loading) {
@@ -163,6 +185,14 @@ const Employees = () => {
                                                         ✏️ Edit
                                                     </button>
                                                     <button
+                                                        className="btn btn-sm btn-warning"
+                                                        onClick={() => handleResetPassword(employee)}
+                                                        disabled={resettingId === employee.id}
+                                                        title="Generate new temporary password"
+                                                    >
+                                                        {resettingId === employee.id ? '⏳' : '🔑'} Reset PW
+                                                    </button>
+                                                    <button
                                                         className="btn btn-sm btn-danger"
                                                         onClick={() => handleDeleteEmployee(employee.id)}
                                                     >
@@ -184,6 +214,13 @@ const Employees = () => {
                     employee={editingEmployee}
                     onClose={handleModalClose}
                     onSuccess={handleModalSuccess}
+                />
+            )}
+
+            {passwordInfo && (
+                <PasswordModal
+                    info={passwordInfo}
+                    onClose={() => setPasswordInfo(null)}
                 />
             )}
         </MainLayout>
@@ -216,21 +253,20 @@ const EmployeeModal = ({ employee, onClose, onSuccess }) => {
 
         try {
             if (isEditing) {
-                // Edit existing employee - use the standard update endpoint
                 await userAPI.update(employee.id, formData);
-                alert('Employee updated successfully');
+                onSuccess();
             } else {
-                // Create new employee - use the admin endpoint
-                // Only send name and email (password is auto-generated on backend)
                 const response = await adminAPI.createUser({
                     name: formData.name,
                     email: formData.email
                 });
-
-                // Show success message indicating email was sent
-                alert(response.data.message || 'User created successfully and credentials have been sent via email');
+                // Pass temp password back to parent so it shows in PasswordModal
+                onSuccess(
+                    response.data.temporaryPassword
+                        ? { name: formData.name, email: formData.email, password: response.data.temporaryPassword }
+                        : null
+                );
             }
-            onSuccess();
         } catch (err) {
             const errorMessage = err.response?.data?.message || 'Failed to save employee';
             setError(errorMessage);
@@ -263,8 +299,8 @@ const EmployeeModal = ({ employee, onClose, onSuccess }) => {
                 )}
 
                 {!isEditing && (
-                    <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#e3f2fd', borderRadius: 'var(--radius)', color: '#1976d2' }}>
-                        ℹ️ A secure password will be automatically generated and sent to the employee's email address.
+                    <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f0fde4', borderRadius: 'var(--radius)', color: '#3a5c00', border: '1px solid #bcf000' }}>
+                        🔑 A secure temporary password will be generated automatically and shown to you after creation.
                     </div>
                 )}
 
@@ -346,3 +382,74 @@ const EmployeeModal = ({ employee, onClose, onSuccess }) => {
 };
 
 export default Employees;
+
+// ── Password Reveal Modal ─────────────────────────────────────────────────────
+const PasswordModal = ({ info, onClose }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(info.password).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2500);
+        });
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2 className="modal-title">🔑 Temporary Password</h2>
+                    <button className="modal-close" onClick={onClose}>×</button>
+                </div>
+                <div className="modal-body">
+                    <div style={{ marginBottom: '1rem', padding: '0.875rem', background: '#fff8e1', borderRadius: 'var(--radius)', border: '1px solid #ffd54f' }}>
+                        ⚠️ <strong>Share this password with the user immediately.</strong> It will not be shown again.
+                    </div>
+
+                    <div style={{ marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', fontWeight: '500' }}>User</span>
+                        <div style={{ fontWeight: '600', color: 'var(--gray-900)' }}>{info.name}</div>
+                        <div style={{ fontSize: '0.8125rem', color: 'var(--gray-500)' }}>{info.email}</div>
+                    </div>
+
+                    <div style={{ marginTop: '1.25rem' }}>
+                        <span style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', fontWeight: '500', display: 'block', marginBottom: '0.375rem' }}>Temporary Password</span>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '0.625rem',
+                            background: '#101010', borderRadius: 'var(--radius)',
+                            padding: '0.75rem 1rem'
+                        }}>
+                            <code style={{
+                                flex: 1, fontFamily: 'monospace', fontSize: '1.05rem',
+                                letterSpacing: '0.05em', color: '#bcf000',
+                                wordBreak: 'break-all'
+                            }}>
+                                {info.password}
+                            </code>
+                            <button
+                                onClick={handleCopy}
+                                style={{
+                                    background: copied ? '#bcf000' : 'rgba(188,240,0,0.15)',
+                                    border: '1px solid #bcf000',
+                                    color: copied ? '#000' : '#bcf000',
+                                    borderRadius: 'var(--radius-sm)',
+                                    padding: '0.375rem 0.75rem',
+                                    cursor: 'pointer',
+                                    fontSize: '0.8125rem',
+                                    fontWeight: '600',
+                                    flexShrink: 0,
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                {copied ? '✓ Copied' : '📋 Copy'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div className="modal-footer">
+                    <button className="btn btn-primary" onClick={onClose}>Done</button>
+                </div>
+            </div>
+        </div>
+    );
+};

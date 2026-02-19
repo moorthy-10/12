@@ -5,18 +5,18 @@ const bcrypt = require('bcryptjs');
 const dbPath = path.join(__dirname, '..', 'database.sqlite');
 
 const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('Error opening database:', err.message);
-    } else {
-        console.log('📦 Connected to SQLite database');
-        initializeDatabase();
-    }
+  if (err) {
+    console.error('Error opening database:', err.message);
+  } else {
+    console.log('📦 Connected to SQLite database');
+    initializeDatabase();
+  }
 });
 
 function initializeDatabase() {
-    db.serialize(() => {
-        // Users table
-        db.run(`
+  db.serialize(() => {
+    // Users table
+    db.run(`
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
@@ -32,8 +32,8 @@ function initializeDatabase() {
       )
     `);
 
-        // Attendance table
-        db.run(`
+    // Attendance table
+    db.run(`
       CREATE TABLE IF NOT EXISTS attendance (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -48,8 +48,8 @@ function initializeDatabase() {
       )
     `);
 
-        // Leaves table
-        db.run(`
+    // Leaves table
+    db.run(`
       CREATE TABLE IF NOT EXISTS leaves (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
@@ -68,8 +68,8 @@ function initializeDatabase() {
       )
     `);
 
-        // Tasks table
-        db.run(`
+    // Tasks table
+    db.run(`
       CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
@@ -87,8 +87,8 @@ function initializeDatabase() {
       )
     `);
 
-        // Calendar Events table
-        db.run(`
+    // Calendar Events table
+    db.run(`
       CREATE TABLE IF NOT EXISTS calendar_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
@@ -104,44 +104,118 @@ function initializeDatabase() {
       )
     `);
 
-        // Create default admin user
-        const adminEmail = 'admin@genlab.com';
-        const adminPassword = bcrypt.hashSync('admin123', 10);
+    // Chat: Groups table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS chat_groups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        created_by INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(id)
+      )
+    `);
 
-        db.get('SELECT * FROM users WHERE email = ?', [adminEmail], (err, row) => {
-            if (!row) {
-                db.run(`
+    // Chat: Group members table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS group_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (group_id) REFERENCES chat_groups(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(group_id, user_id)
+      )
+    `);
+
+    // Chat: Messages table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id INTEGER NOT NULL,
+        sender_id INTEGER NOT NULL,
+        type TEXT CHECK(type IN ('text', 'file')) DEFAULT 'text',
+        content TEXT NOT NULL,
+        file_url TEXT,
+        file_name TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (group_id) REFERENCES chat_groups(id) ON DELETE CASCADE,
+        FOREIGN KEY (sender_id) REFERENCES users(id)
+      )
+    `);
+
+    // Chat: Private messages table (1-to-1)
+    db.run(`
+      CREATE TABLE IF NOT EXISTS private_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_id INTEGER NOT NULL,
+        receiver_id INTEGER NOT NULL,
+        content TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sender_id) REFERENCES users(id),
+        FOREIGN KEY (receiver_id) REFERENCES users(id)
+      )
+    `);
+
+    // Index for fast conversation lookup
+    db.run(`CREATE INDEX IF NOT EXISTS idx_pm_conversation
+      ON private_messages(sender_id, receiver_id, created_at)`);
+
+    // Notifications table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('chat', 'task', 'leave', 'attendance')),
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        related_id INTEGER,
+        is_read INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    db.run(`CREATE INDEX IF NOT EXISTS idx_notif_user
+      ON notifications(user_id, is_read, created_at)`);
+
+    // Create default admin user
+    const adminEmail = 'admin@genlab.com';
+    const adminPassword = bcrypt.hashSync('admin123', 10);
+
+    db.get('SELECT * FROM users WHERE email = ?', [adminEmail], (err, row) => {
+      if (!row) {
+        db.run(`
           INSERT INTO users (name, email, password, role, department, position, phone)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `, ['Admin User', adminEmail, adminPassword, 'admin', 'Management', 'System Administrator', '+1234567890'], (err) => {
-                    if (err) {
-                        console.error('Error creating admin user:', err);
-                    } else {
-                        console.log('✅ Default admin user created (admin@genlab.com / admin123)');
-                    }
-                });
-            }
+          if (err) {
+            console.error('Error creating admin user:', err);
+          } else {
+            console.log('✅ Default admin user created (admin@genlab.com / admin123)');
+          }
         });
+      }
+    });
 
-        // Create demo employee
-        const demoEmail = 'demo@genlab.com';
-        const demoPassword = bcrypt.hashSync('demo123', 10);
+    // Create demo employee
+    const demoEmail = 'demo@genlab.com';
+    const demoPassword = bcrypt.hashSync('demo123', 10);
 
-        db.get('SELECT * FROM users WHERE email = ?', [demoEmail], (err, row) => {
-            if (!row) {
-                db.run(`
+    db.get('SELECT * FROM users WHERE email = ?', [demoEmail], (err, row) => {
+      if (!row) {
+        db.run(`
           INSERT INTO users (name, email, password, role, department, position, phone)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `, ['Demo Employee', demoEmail, demoPassword, 'employee', 'Engineering', 'Software Developer', '+1234567891'], (err) => {
-                    if (err) {
-                        console.error('Error creating demo user:', err);
-                    } else {
-                        console.log('✅ Demo employee user created (demo@genlab.com / demo123)');
-                    }
-                });
-            }
+          if (err) {
+            console.error('Error creating demo user:', err);
+          } else {
+            console.log('✅ Demo employee user created (demo@genlab.com / demo123)');
+          }
         });
+      }
     });
+  });
 }
 
 module.exports = db;

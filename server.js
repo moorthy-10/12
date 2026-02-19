@@ -1,14 +1,24 @@
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { Server } = require('socket.io');
 require('dotenv').config();
 
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? false
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -19,6 +29,10 @@ const dashboardRoutes = require('./routes/dashboard');
 const taskRoutes = require('./routes/tasks');
 const calendarRoutes = require('./routes/calendar');
 const adminRoutes = require('./routes/admin');
+const groupRoutes = require('./routes/groups');
+const privateMessageRoutes = require('./routes/privateMessages');
+const eventRoutes = require('./routes/events');
+const notificationRoutes = require('./routes/notifications');
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -29,6 +43,10 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/groups', groupRoutes);
+app.use('/api/private-messages', privateMessageRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -38,7 +56,6 @@ app.get('/api/health', (req, res) => {
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, 'client/build')));
-
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
   });
@@ -54,9 +71,31 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ── HTTP + Socket.io Setup ──────────────────────────────────────────────────
+const httpServer = http.createServer(app);
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.NODE_ENV === 'production'
+      ? false
+      : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Make io accessible to route handlers (e.g. file upload emits)
+app.set('io', io);
+
+// Attach Socket.io event handlers
+const initSocket = require('./socket/index');
+initSocket(io);
+
+// ── Start Server ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`🚀 GenLab server running on port ${PORT}`);
   console.log(`📍 API available at http://localhost:${PORT}/api`);
+  console.log(`🔌 Socket.io ready`);
 });

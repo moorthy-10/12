@@ -116,8 +116,9 @@ router.post('/create-user', authenticateToken, isAdmin, [
             console.warn('⚠️ N8N_WEBHOOK_URL not configured - skipping email notification');
             return res.status(201).json({
                 success: true,
-                message: 'User created successfully (email notification disabled)',
+                message: 'User created successfully',
                 user: newUser,
+                temporaryPassword,   // ← always return so admin can share it manually
                 warning: 'Email notifications not configured'
             });
         }
@@ -144,11 +145,12 @@ router.post('/create-user', authenticateToken, isAdmin, [
 
             console.log(`✅ n8n webhook triggered successfully - Email notification sent for ${email}`);
 
-            // Success response - user created and email sent
+            // Success response
             return res.status(201).json({
                 success: true,
-                message: 'User created successfully and credentials have been sent via email',
-                user: newUser
+                message: 'User created successfully and credentials sent via email',
+                user: newUser,
+                temporaryPassword   // ← always return so admin has it as backup
             });
 
         } catch (webhookError) {
@@ -164,9 +166,10 @@ router.post('/create-user', authenticateToken, isAdmin, [
             // User was created successfully - only email notification failed
             return res.status(201).json({
                 success: true,
-                message: 'User created successfully but email notification failed',
+                message: 'User created successfully (email notification failed — share password manually)',
                 user: newUser,
-                warning: 'Please send credentials manually to the user'
+                temporaryPassword,   // ← critical: admin must share this manually
+                warning: 'Please share the temporary password below with the user directly'
             });
         }
 
@@ -180,6 +183,59 @@ router.post('/create-user', authenticateToken, isAdmin, [
             message: 'Failed to create user. Please try again.',
             error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
+    }
+});
+
+/**
+ * POST /api/admin/reset-password/:id
+ * Generates a new temp password for a user and returns it to admin in plaintext.
+ * Admin only.
+ */
+router.post('/reset-password/:id', authenticateToken, isAdmin, async (req, res) => {
+    const userId = parseInt(req.params.id, 10);
+    if (isNaN(userId)) {
+        return res.status(400).json({ success: false, message: 'Invalid user ID' });
+    }
+
+    // Prevent resetting your own password via this endpoint
+    if (userId === req.user.id) {
+        return res.status(400).json({ success: false, message: 'Use change-password to update your own password' });
+    }
+
+    try {
+        const user = await new Promise((resolve, reject) => {
+            db.get('SELECT id, name, email, role FROM users WHERE id = ?', [userId], (err, row) => {
+                if (err) reject(err); else resolve(row);
+            });
+        });
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        const newPassword = generateSecurePassword();
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        await new Promise((resolve, reject) => {
+            db.run(
+                'UPDATE users SET password = ?, forcePasswordChange = 1 WHERE id = ?',
+                [hashedPassword, userId],
+                function (err) { if (err) reject(err); else resolve(this); }
+            );
+        });
+
+        console.log(`🔑 Password reset by admin for user: ${user.email}`);
+
+        return res.json({
+            success: true,
+            message: `Password reset successfully for ${user.name}`,
+            temporaryPassword: newPassword,
+            user: { id: user.id, name: user.name, email: user.email }
+        });
+
+    } catch (error) {
+        console.error('❌ Reset password error:', error);
+        return res.status(500).json({ success: false, message: 'Failed to reset password' });
     }
 });
 

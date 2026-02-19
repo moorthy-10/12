@@ -1,0 +1,227 @@
+.groups-page {
+    padding: 1.5rem;
+    max-width: 1000px;
+}
+
+.page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.page-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin: 0;
+}
+
+.page-subtitle {
+    font-size: 0.875rem;
+    color: var(--gray-500);
+    margin: 0;
+}
+
+/* ── Empty State ─────────────────────────────────────────────────────────── */
+.groups-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 5rem 2rem;
+    text-align: center;
+    gap: 1rem;
+    background: white;
+    border-radius: var(--radius-xl);
+    border: 2px dashed var(--gray-200);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    line-height: 1;
+}
+
+.groups-empty h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.groups-empty p {
+    font-size: 0.9rem;
+    color: var(--gray-500);
+    max-width: 380px;
+}
+
+/* ── Groups Grid ─────────────────────────────────────────────────────────── */
+.groups-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.group-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: var(--transition);
+    border: 2px solid transparent;
+}
+
+.group-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+    transform: translateX(4px);
+}
+
+.group-card-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: #000;
+    flex-shrink: 0;
+}
+
+.group-card-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.group-card-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin-bottom: 0.25rem;
+}
+
+.group-card-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.8125rem;
+    color: var(--gray-500);
+    margin-bottom: 0.25rem;
+}
+
+.group-card-creator {
+    font-size: 0.75rem;
+    color: var(--gray-400);
+}
+
+.group-card-arrow {
+    font-size: 1.5rem;
+    color: var(--gray-300);
+    font-weight: 300;
+    transition: var(--transition);
+}
+
+.group-card:hover .group-card-arrow {
+    color: var(--primary);
+}
+
+/* ── User Select in Modal ───────────────────────────────────────────────── */
+.user-select-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 0.5rem;
+}
+
+.user-select-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1.5px solid transparent;
+}
+
+.user-select-item input[type="checkbox"] {
+    display: none;
+}
+
+.user-select-item:hover {
+    background: var(--gray-50);
+}
+
+.user-select-item.selected {
+    background: #f0fde4;
+    border-color: var(--primary);
+}
+
+.user-select-avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--gray-200);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+.user-select-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-select-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--gray-900);
+}
+
+.user-select-email {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-select-check {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #000;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.user-select-check.visible {
+    opacity: 1;
+}

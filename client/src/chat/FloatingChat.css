@@ -1,0 +1,541 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Floating Chat — FAB + Window/Picker
+   All selectors are prefixed "fchat-" to prevent collisions with existing CSS.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* ── FAB Button ─────────────────────────────────────────────────────────── */
+.fchat-fab {
+    position: fixed;
+    bottom: 1.75rem;
+    right: 1.75rem;
+    z-index: 9000;
+
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+
+    background: #101010;
+    color: #bcf000;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), 0 0 0 2px rgba(188, 240, 0, 0.3);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    outline: none;
+}
+
+.fchat-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.4), 0 0 0 3px rgba(188, 240, 0, 0.5);
+}
+
+.fchat-fab:active {
+    transform: scale(0.97);
+}
+
+.fchat-fab.active {
+    background: #1a1a1a;
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(188, 240, 0, 0.6);
+}
+
+.fchat-fab-icon {
+    font-size: 1.375rem;
+    line-height: 1;
+    display: block;
+}
+
+/* ── Unread Badge ─────────────────────────────────────────────────────────── */
+.fchat-fab-badge {
+    position: absolute;
+    top: -0.25rem;
+    right: -0.25rem;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.3rem;
+    border: 2px solid white;
+    animation: badge-pop 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes badge-pop {
+    0% {
+        transform: scale(0);
+    }
+
+    60% {
+        transform: scale(1.25);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* ── Floating Window / Picker base ──────────────────────────────────────── */
+.fchat-window {
+    position: fixed;
+    bottom: calc(1.75rem + 3.5rem + 0.875rem);
+    /* above the FAB */
+    right: 1.75rem;
+    z-index: 9001;
+
+    width: 340px;
+    border-radius: 1rem;
+    background: white;
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.22),
+        0 4px 12px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+
+    animation: fchat-slide-up 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+    transform-origin: bottom right;
+}
+
+@keyframes fchat-slide-up {
+    from {
+        opacity: 0;
+        transform: scale(0.88) translateY(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Picker is shorter; chat window has fixed height */
+.fchat-picker {
+    max-height: 420px;
+}
+
+.fchat-chat {
+    height: 480px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.fchat-header {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.875rem 1rem;
+    background: #101010;
+    color: white;
+    flex-shrink: 0;
+}
+
+.fchat-header-title {
+    flex: 1;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: white;
+}
+
+.fchat-close-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-size: 1rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.fchat-close-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+.fchat-back-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    font-size: 1.4rem;
+    line-height: 1;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.fchat-back-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+.fchat-header-user {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.fchat-header-avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: #bcf000;
+    color: #000;
+    font-weight: 700;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.fchat-header-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fchat-header-role {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.55);
+    text-transform: capitalize;
+}
+
+/* ── User Picker ─────────────────────────────────────────────────────────── */
+.fchat-search-bar {
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
+}
+
+.fchat-search-input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    background: #f9fafb;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.fchat-search-input:focus {
+    border-color: #bcf000;
+    background: white;
+}
+
+.fchat-user-list {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.fchat-user-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.fchat-user-row:hover {
+    background: #f9fafb;
+}
+
+.fchat-user-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    background: #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: #374151;
+    flex-shrink: 0;
+}
+
+.fchat-user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.fchat-user-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fchat-user-sub {
+    font-size: 0.725rem;
+    color: #9ca3af;
+    text-transform: capitalize;
+}
+
+/* ── Messages Area ───────────────────────────────────────────────────────── */
+.fchat-messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding: 0.875rem 0.875rem 0.5rem;
+    background: #f0f2f5;
+    scroll-behavior: smooth;
+}
+
+/* Custom scrollbar for message area */
+.fchat-messages::-webkit-scrollbar {
+    width: 4px;
+}
+
+.fchat-messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.fchat-messages::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+}
+
+/* ── Message Bubbles ─────────────────────────────────────────────────────── */
+.fchat-bubble-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.375rem;
+    animation: fchat-msg-in 0.15s ease;
+}
+
+@keyframes fchat-msg-in {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fchat-bubble-row.mine {
+    flex-direction: row-reverse;
+    align-self: flex-end;
+    max-width: 85%;
+}
+
+.fchat-bubble-row.theirs {
+    align-self: flex-start;
+    max-width: 85%;
+}
+
+.fchat-bubble-avatar {
+    width: 1.625rem;
+    height: 1.625rem;
+    border-radius: 50%;
+    background: #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #374151;
+    flex-shrink: 0;
+    margin-bottom: 0.125rem;
+}
+
+.fchat-bubble-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.0625rem;
+}
+
+.fchat-bubble-sender {
+    font-size: 0.675rem;
+    color: #6b7280;
+    font-weight: 600;
+    margin-left: 0.5rem;
+    margin-bottom: 0.125rem;
+}
+
+.fchat-bubble {
+    padding: 0.5rem 0.75rem;
+    border-radius: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    word-break: break-word;
+    max-width: 100%;
+}
+
+.fchat-bubble.mine {
+    background: #bcf000;
+    color: #000;
+    border-bottom-right-radius: 0.25rem;
+}
+
+.fchat-bubble.theirs {
+    background: white;
+    color: #111827;
+    border-bottom-left-radius: 0.25rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.fchat-bubble-text {
+    font-size: 0.875rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+}
+
+.fchat-bubble-time {
+    font-size: 0.625rem;
+    opacity: 0.6;
+    align-self: flex-end;
+    margin-top: 0.0625rem;
+    white-space: nowrap;
+}
+
+/* ── Input Bar ───────────────────────────────────────────────────────────── */
+.fchat-input-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+.fchat-text-input {
+    flex: 1;
+    padding: 0.5rem 0.875rem;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    outline: none;
+    background: #f9fafb;
+    transition: border-color 0.15s;
+    min-width: 0;
+}
+
+.fchat-text-input:focus {
+    border-color: #bcf000;
+    background: white;
+}
+
+.fchat-send-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    border: none;
+    background: #101010;
+    color: #bcf000;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.fchat-send-btn:hover:not(:disabled) {
+    background: #1a1a1a;
+    transform: scale(1.08);
+}
+
+.fchat-send-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* ── Misc: Loading / Empty ───────────────────────────────────────────────── */
+.fchat-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+}
+
+.fchat-spinner {
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 2.5px solid #e5e7eb;
+    border-top-color: #bcf000;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.fchat-empty-label {
+    text-align: center;
+    color: #9ca3af;
+    font-size: 0.875rem;
+    padding: 2rem 1rem;
+}
+
+.fchat-no-messages {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex: 1;
+    height: 100%;
+    color: #9ca3af;
+    font-size: 0.875rem;
+}
+
+.fchat-no-messages span {
+    font-size: 2rem;
+}
+
+/* ── Responsive — collapse on very small screens ────────────────────────── */
+@media (max-width: 400px) {
+    .fchat-window {
+        right: 0.75rem;
+        width: calc(100vw - 1.5rem);
+    }
+
+    .fchat-fab {
+        right: 0.75rem;
+    }
+}
