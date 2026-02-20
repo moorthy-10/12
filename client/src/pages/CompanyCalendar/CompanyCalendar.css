@@ -511,3 +511,123 @@
         padding: 1.25rem;
     }
 }
+
+/* ── Tagged Event Highlight ────────────────────────────────────────────────── */
+/* Applied to the event pill wrapper when the logged-in user is tagged.
+   Does NOT override background/border-color set by FullCalendar on the
+   outer .fc-event element — only the pill itself gets the ring. */
+.cc-event-pill.cc-event-tagged {
+    outline: 2px solid #00ff88;
+    outline-offset: 1px;
+    border-radius: 4px;
+    background: rgba(0, 255, 136, 0.08);
+}
+
+.cc-event-tag-badge {
+    margin-left: 0.25rem;
+    font-size: 0.7rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+/* ── Participant Picker ─────────────────────────────────────────────────────── */
+.cc-label-hint {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--gray-400, #9ca3af);
+    margin-left: 0.25rem;
+}
+
+.cc-participant-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    max-height: 160px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    border: 1px solid var(--gray-200, #e5e7eb);
+    border-radius: 8px;
+    background: var(--gray-50, #f9fafb);
+}
+
+.cc-participant-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.65rem 0.35rem 0.4rem;
+    border-radius: 9999px;
+    border: 1.5px solid var(--gray-200, #e5e7eb);
+    background: white;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    color: var(--gray-700, #374151);
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.cc-participant-item:hover {
+    border-color: #00ff88;
+    background: #f0fff9;
+}
+
+.cc-participant-item.selected {
+    border-color: #00d97e;
+    background: #e8fff4;
+    color: #065f46;
+    font-weight: 500;
+}
+
+.cc-participant-avatar {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--primary, #bcf000);
+    color: #000;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.cc-participant-item.selected .cc-participant-avatar {
+    background: #00d97e;
+}
+
+.cc-participant-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+
+.cc-participant-check {
+    color: #00d97e;
+    font-weight: 700;
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+.cc-participant-count {
+    margin-top: 0.4rem;
+    font-size: 0.75rem;
+    color: #065f46;
+    font-weight: 500;
+    padding: 0 0.25rem;
+}
+
+/* ── View Modal: Tagged Callout ─────────────────────────────────────────────── */
+.cc-view-tagged-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    background: #e8fff4;
+    border: 1.5px solid #00d97e;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #065f46;
+}

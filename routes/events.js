@@ -4,6 +4,7 @@ const express = require('express');
 const router = express.Router();
 const { body, query, validationResult } = require('express-validator');
 const CalendarEvent = require('../models/CalendarEvent');
+const User = require('../models/User');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -76,6 +77,13 @@ function formatEvent(ev) {
         end = d.toISOString().slice(0, 10);
     }
 
+    // Normalise participants into a plain array of ID strings
+    const participants = (ev.participants || []).map(p =>
+        (typeof p === 'object' && p !== null)
+            ? (p._id?.toString() || p.toString())
+            : String(p)
+    );
+
     return {
         id: String(ev.id || ev._id),
         title: ev.title,
@@ -91,6 +99,7 @@ function formatEvent(ev) {
         is_holiday: ev.is_holiday ? 1 : 0,
         created_by: ev.created_by?._id?.toString() || ev.created_by?.toString(),
         created_by_name: ev.created_by?.name || ev.created_by_name || undefined,
+        participants,
         _virtual: ev._virtual || false
     };
 }
@@ -123,6 +132,7 @@ router.get('/', authenticateToken, [
             ]
         })
             .populate('created_by', 'name')
+            .populate('participants', '_id')
             .sort({ start_date: 1 });
 
         const results = [];
@@ -150,7 +160,9 @@ router.get('/', authenticateToken, [
 // ── GET /api/events/:id ───────────────────────────────────────────────────────
 router.get('/:id', authenticateToken, async (req, res) => {
     try {
-        const event = await CalendarEvent.findById(req.params.id).populate('created_by', 'name');
+        const event = await CalendarEvent.findById(req.params.id)
+            .populate('created_by', 'name')
+            .populate('participants', '_id');
         if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
         const plain = event.toJSON();
         plain.created_by_name = event.created_by?.name;
@@ -170,7 +182,8 @@ router.post('/', authenticateToken, isAdmin, [
     body('location').optional().trim().isLength({ max: 200 }),
     body('type').optional().isIn(['holiday', 'meeting', 'announcement', 'training', 'company-event', 'other']),
     body('recurrence').optional().isIn(['none', 'monthly', 'yearly']),
-    body('recurrenceInterval').optional().isInt({ min: 1, max: 99 })
+    body('recurrenceInterval').optional().isInt({ min: 1, max: 99 }),
+    body('participants').optional().isArray()
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
@@ -178,7 +191,8 @@ router.post('/', authenticateToken, isAdmin, [
     const {
         title, description = '', startDate, endDate,
         allDay = true, location = '', type = 'announcement',
-        recurrence = 'none', recurrenceInterval = 1
+        recurrence = 'none', recurrenceInterval = 1,
+        participants: rawParticipants = []
     } = req.body;
 
     const startStr = startDate.slice(0, 10);
@@ -193,6 +207,13 @@ router.post('/', authenticateToken, isAdmin, [
     const startTime = !allDay && startDate.includes('T') ? startDate.slice(11, 16) : null;
     const endTime = !allDay && endDate.includes('T') ? endDate.slice(11, 16) : null;
 
+    // Validate participant IDs (if any supplied)
+    let participantIds = [];
+    if (Array.isArray(rawParticipants) && rawParticipants.length > 0) {
+        const found = await User.find({ _id: { $in: rawParticipants } }).select('_id');
+        participantIds = found.map(u => u._id);
+    }
+
     try {
         const created = await CalendarEvent.create({
             title, description, event_type: legacyEventType, type,
@@ -200,10 +221,13 @@ router.post('/', authenticateToken, isAdmin, [
             is_holiday: type === 'holiday',
             all_day: !!allDay, location, start_time: startTime, end_time: endTime,
             recurrence, recurrence_interval: recurrenceInterval,
-            created_by: req.user.id
+            created_by: req.user.id,
+            participants: participantIds
         });
 
-        const event = await CalendarEvent.findById(created._id).populate('created_by', 'name');
+        const event = await CalendarEvent.findById(created._id)
+            .populate('created_by', 'name')
+            .populate('participants', '_id');
         const plain = event.toJSON();
         plain.created_by_name = event.created_by?.name;
 
@@ -224,12 +248,13 @@ router.put('/:id', authenticateToken, isAdmin, [
     body('location').optional().trim(),
     body('type').optional().isIn(['holiday', 'meeting', 'announcement', 'training', 'company-event', 'other']),
     body('recurrence').optional().isIn(['none', 'monthly', 'yearly']),
-    body('recurrenceInterval').optional().isInt({ min: 1, max: 99 })
+    body('recurrenceInterval').optional().isInt({ min: 1, max: 99 }),
+    body('participants').optional().isArray()
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
-    const { title, description, startDate, endDate, allDay, location, type, recurrence, recurrenceInterval } = req.body;
+    const { title, description, startDate, endDate, allDay, location, type, recurrence, recurrenceInterval, participants: rawParticipants } = req.body;
     const updates = {};
 
     if (title !== undefined) updates.title = title;
@@ -254,6 +279,16 @@ router.put('/:id', authenticateToken, isAdmin, [
         updates.end_time = !allDay && endDate.includes('T') ? endDate.slice(11, 16) : null;
     }
 
+    // Handle participants update
+    if (Array.isArray(rawParticipants)) {
+        if (rawParticipants.length > 0) {
+            const found = await User.find({ _id: { $in: rawParticipants } }).select('_id');
+            updates.participants = found.map(u => u._id);
+        } else {
+            updates.participants = []; // allow clearing participants
+        }
+    }
+
     if (Object.keys(updates).length === 0) {
         return res.status(400).json({ success: false, message: 'No fields to update' });
     }
@@ -261,7 +296,7 @@ router.put('/:id', authenticateToken, isAdmin, [
     try {
         const event = await CalendarEvent.findByIdAndUpdate(
             req.params.id, { $set: updates }, { new: true }
-        ).populate('created_by', 'name');
+        ).populate('created_by', 'name').populate('participants', '_id');
 
         if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
         const plain = event.toJSON();

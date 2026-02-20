@@ -17,6 +17,7 @@ const calendarEventSchema = new mongoose.Schema({
     recurrence: { type: String, enum: ['none', 'monthly', 'yearly'], default: 'none' },
     recurrence_interval: { type: Number, default: 1 },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
 calendarEventSchema.virtual('id').get(function () { return this._id.toString(); });

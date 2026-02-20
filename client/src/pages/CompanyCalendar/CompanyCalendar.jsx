@@ -4,7 +4,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import MainLayout from '../../components/Layout/MainLayout';
-import { eventAPI } from '../../api/api';
+import { eventAPI, userAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import './CompanyCalendar.css';
 
@@ -44,12 +44,14 @@ const BLANK_FORM = {
     type: 'announcement',
     recurrence: 'none',
     recurrenceInterval: 1,
+    participants: [],   // array of user IDs (strings)
 };
 
 // ── Main Component ────────────────────────────────────────────────────────────
 const CompanyCalendar = () => {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
+    const currentUserId = user?._id || user?.id || '';
     const calRef = useRef(null);
 
     const [events, setEvents] = useState([]);
@@ -65,6 +67,9 @@ const CompanyCalendar = () => {
     const [form, setForm] = useState(BLANK_FORM);
     const [saving, setSaving] = useState(false);
     const [formError, setFormError] = useState('');
+
+    // Employees list for participant picker (loaded when modal opens)
+    const [employees, setEmployees] = useState([]);
 
     // View event detail (employee or admin)
     const [viewEvent, setViewEvent] = useState(null);
@@ -84,6 +89,17 @@ const CompanyCalendar = () => {
 
     useEffect(() => { loadEvents(currentMonth); }, [currentMonth, loadEvents]);
 
+    // ── Load employees for participant picker ────────────────────────────────
+    const loadEmployees = useCallback(async () => {
+        if (!isAdmin) return;
+        try {
+            const res = await userAPI.getAll({ role: 'employee', status: 'active' });
+            setEmployees(res.data.users || []);
+        } catch (err) {
+            console.error('Failed to load employees for picker:', err);
+        }
+    }, [isAdmin]);
+
     // ── FullCalendar callbacks ────────────────────────────────────────────────
     const handleDatesSet = (info) => {
         // info.start is the first day visible — compute the middle of the view to get the month
@@ -98,6 +114,7 @@ const CompanyCalendar = () => {
         setFormError('');
         setForm({ ...BLANK_FORM, startDate: info.dateStr, endDate: info.dateStr });
         setModalOpen(true);
+        loadEmployees();
     };
 
     const handleEventClick = (info) => {
@@ -116,6 +133,7 @@ const CompanyCalendar = () => {
                 type: ext.type,
                 recurrence: ext.recurrence,
                 createdBy: ext.created_by_name,
+                participants: Array.isArray(ext.participants) ? ext.participants : [],
             });
             return;
         }
@@ -150,8 +168,10 @@ const CompanyCalendar = () => {
             type: ext.type || 'announcement',
             recurrence: ext.recurrence || 'none',
             recurrenceInterval: ext.recurrence_interval || 1,
+            participants: Array.isArray(ext.participants) ? ext.participants : [],
         });
         setModalOpen(true);
+        loadEmployees();
     };
 
     // ── Form handlers ─────────────────────────────────────────────────────────
@@ -177,6 +197,7 @@ const CompanyCalendar = () => {
             type: form.type,
             recurrence: form.recurrence,
             recurrenceInterval: Number(form.recurrenceInterval),
+            participants: form.participants,
         };
     };
 
@@ -242,6 +263,7 @@ const CompanyCalendar = () => {
                             setFormError('');
                             setForm({ ...BLANK_FORM, startDate: today, endDate: today });
                             setModalOpen(true);
+                            loadEmployees();
                         }}>
                             ＋ Add Event
                         </button>
@@ -269,14 +291,22 @@ const CompanyCalendar = () => {
                         editable={false}
                         selectable={isAdmin}
                         nowIndicator
-                        eventContent={(arg) => (
-                            <div className="cc-event-pill" title={arg.event.title}>
-                                <span className="cc-event-dot" style={{
-                                    background: arg.event.backgroundColor
-                                }} />
-                                <span className="cc-event-title">{arg.event.title}</span>
-                            </div>
-                        )}
+                        eventContent={(arg) => {
+                            const extParticipants = arg.event.extendedProps.participants || [];
+                            const isTagged = currentUserId && extParticipants.includes(currentUserId);
+                            return (
+                                <div
+                                    className={`cc-event-pill${isTagged ? ' cc-event-tagged' : ''}`}
+                                    title={arg.event.title}
+                                >
+                                    <span className="cc-event-dot" style={{
+                                        background: arg.event.backgroundColor
+                                    }} />
+                                    <span className="cc-event-title">{arg.event.title}</span>
+                                    {isTagged && <span className="cc-event-tag-badge" title="You are tagged">🔔</span>}
+                                </div>
+                            );
+                        }}
                     />
                 </div>
             </div>
@@ -394,6 +424,49 @@ const CompanyCalendar = () => {
                                 )}
                             </div>
 
+                            {/* Tagged Participants */}
+                            {employees.length > 0 && (
+                                <div className="cc-form-group">
+                                    <label>Tag Employees <span className="cc-label-hint">(optional — they'll see a highlight)</span></label>
+                                    <div className="cc-participant-list">
+                                        {employees.map(emp => {
+                                            const empId = emp._id?.toString() || emp.id?.toString();
+                                            const isSelected = form.participants.includes(empId);
+                                            return (
+                                                <label
+                                                    key={empId}
+                                                    className={`cc-participant-item${isSelected ? ' selected' : ''}`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => {
+                                                            setForm(f => ({
+                                                                ...f,
+                                                                participants: isSelected
+                                                                    ? f.participants.filter(id => id !== empId)
+                                                                    : [...f.participants, empId]
+                                                            }));
+                                                        }}
+                                                        style={{ display: 'none' }}
+                                                    />
+                                                    <span className="cc-participant-avatar">
+                                                        {emp.name?.charAt(0).toUpperCase()}
+                                                    </span>
+                                                    <span className="cc-participant-name">{emp.name}</span>
+                                                    {isSelected && <span className="cc-participant-check">✓</span>}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                    {form.participants.length > 0 && (
+                                        <div className="cc-participant-count">
+                                            {form.participants.length} employee{form.participants.length > 1 ? 's' : ''} tagged
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Footer */}
                             <div className="cc-modal-footer">
                                 {editingEvent && (
@@ -468,6 +541,13 @@ const CompanyCalendar = () => {
                                     <span>{viewEvent.createdBy}</span>
                                 </div>
                             )}
+                            {/* Tagged callout — shown if current user is in participants */}
+                            {Array.isArray(viewEvent.participants) && currentUserId &&
+                                viewEvent.participants.includes(currentUserId) && (
+                                    <div className="cc-view-tagged-badge">
+                                        🔔 You are tagged in this event
+                                    </div>
+                                )}
                         </div>
                         <div className="cc-modal-footer" style={{ justifyContent: 'flex-end' }}>
                             <button className="cc-btn-save" onClick={() => setViewEvent(null)}>Close</button>
