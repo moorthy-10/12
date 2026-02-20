@@ -1,182 +1,116 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
-const db = require('../config/database');
+const User = require('../models/User');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 
 /**
  * Generate a secure random password
- * @returns {string} A secure 12-character password
  */
 function generateSecurePassword() {
     const length = 12;
     const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
     let password = '';
 
-    // Ensure at least one of each type
-    password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]; // Uppercase
-    password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]; // Lowercase
-    password += '0123456789'[Math.floor(Math.random() * 10)]; // Number
-    password += '!@#$%^&*'[Math.floor(Math.random() * 8)]; // Special char
+    password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)];
+    password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)];
+    password += '0123456789'[Math.floor(Math.random() * 10)];
+    password += '!@#$%^&*'[Math.floor(Math.random() * 8)];
 
-    // Fill the rest randomly
     for (let i = password.length; i < length; i++) {
         const randomIndex = crypto.randomInt(0, charset.length);
         password += charset[randomIndex];
     }
 
-    // Shuffle the password
     return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
-/**
- * POST /api/admin/create-user
- * Create a new employee user and trigger n8n webhook to send credentials
- * Admin only endpoint
- */
+// ── POST /api/admin/create-user ───────────────────────────────────────────────
 router.post('/create-user', authenticateToken, isAdmin, [
     body('name').notEmpty().trim().withMessage('Name is required'),
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required')
 ], async (req, res) => {
-    // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({
-            success: false,
-            message: 'Validation failed',
-            errors: errors.array()
-        });
+        return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
     const { name, email } = req.body;
 
     try {
-        // Check if email already exists
-        const existingUser = await new Promise((resolve, reject) => {
-            db.get('SELECT * FROM users WHERE email = ?', [email], (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
-            });
-        });
-
+        const existingUser = await User.findOne({ email });
         if (existingUser) {
-            return res.status(400).json({
-                success: false,
-                message: 'A user with this email already exists'
-            });
+            return res.status(400).json({ success: false, message: 'A user with this email already exists' });
         }
 
-        // Generate a secure temporary password
         const temporaryPassword = generateSecurePassword();
         console.log(`🔐 Generated temporary password for user: ${email}`);
 
-        // Hash the password using bcrypt
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
         console.log('🔒 Password hashed successfully');
 
-        // Save the user in the database FIRST (user creation must never fail due to email issues)
-        const newUser = await new Promise((resolve, reject) => {
-            db.run(`
-                INSERT INTO users (name, email, password, role, status, forcePasswordChange)
-                VALUES (?, ?, ?, ?, ?, ?)
-            `, [name, email, hashedPassword, 'employee', 'active', 1], function (err) {
-                if (err) {
-                    console.error('❌ Database error while creating user:', err);
-                    reject(err);
-                } else {
-                    const userId = this.lastID;
-                    console.log(`✅ User created successfully in database - ID: ${userId}`);
-
-                    // Fetch the created user
-                    db.get(
-                        'SELECT id, name, email, role, status, created_at FROM users WHERE id = ?',
-                        [userId],
-                        (err, user) => {
-                            if (err) {
-                                console.error('❌ Failed to fetch created user:', err);
-                                reject(err);
-                            } else {
-                                resolve(user);
-                            }
-                        }
-                    );
-                }
-            });
+        const created = await User.create({
+            name,
+            email,
+            password: hashedPassword,
+            role: 'employee',
+            status: 'active',
+            forcePasswordChange: true
         });
 
-        // User is now created ✅ - email notification is best-effort from here
+        console.log(`✅ User created successfully in database - ID: ${created._id}`);
 
-        // Check if n8n webhook URL is configured
+        const newUser = {
+            id: created._id.toString(),
+            name: created.name,
+            email: created.email,
+            role: created.role,
+            status: created.status,
+            createdAt: created.createdAt
+        };
+
+        // n8n webhook (best-effort)
         const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
-
         if (!n8nWebhookUrl) {
             console.warn('⚠️ N8N_WEBHOOK_URL not configured - skipping email notification');
             return res.status(201).json({
                 success: true,
                 message: 'User created successfully',
                 user: newUser,
-                temporaryPassword,   // ← always return so admin can share it manually
+                temporaryPassword,
                 warning: 'Email notifications not configured'
             });
         }
 
-        // Trigger n8n webhook with the credentials
         console.log('📧 Triggering n8n webhook for email notification...');
-
         try {
-            await axios.post(
-                n8nWebhookUrl,
-                {
-                    name,
-                    email,
-                    role: 'employee',
-                    temporaryPassword
-                },
-                {
-                    timeout: 5000, // 5 seconds as specified
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-
+            await axios.post(n8nWebhookUrl, { name, email, role: 'employee', temporaryPassword }, {
+                timeout: 5000,
+                headers: { 'Content-Type': 'application/json' }
+            });
             console.log(`✅ n8n webhook triggered successfully - Email notification sent for ${email}`);
-
-            // Success response
             return res.status(201).json({
                 success: true,
                 message: 'User created successfully and credentials sent via email',
                 user: newUser,
-                temporaryPassword   // ← always return so admin has it as backup
+                temporaryPassword
             });
-
         } catch (webhookError) {
-            // Log the error internally but DON'T throw it
             console.error('⚠️ n8n webhook failed:', webhookError.message);
-            if (webhookError.response) {
-                console.error('   Response status:', webhookError.response.status);
-                console.error('   Response data:', webhookError.response.data);
-            } else if (webhookError.code) {
-                console.error('   Error code:', webhookError.code);
-            }
-
-            // User was created successfully - only email notification failed
             return res.status(201).json({
                 success: true,
                 message: 'User created successfully (email notification failed — share password manually)',
                 user: newUser,
-                temporaryPassword,   // ← critical: admin must share this manually
+                temporaryPassword,
                 warning: 'Please share the temporary password below with the user directly'
             });
         }
-
-
-
     } catch (error) {
-        // This catch is ONLY for database errors (user creation failure)
         console.error('❌ Error creating user:', error);
         return res.status(500).json({
             success: false,
@@ -186,29 +120,16 @@ router.post('/create-user', authenticateToken, isAdmin, [
     }
 });
 
-/**
- * POST /api/admin/reset-password/:id
- * Generates a new temp password for a user and returns it to admin in plaintext.
- * Admin only.
- */
+// ── POST /api/admin/reset-password/:id ───────────────────────────────────────
 router.post('/reset-password/:id', authenticateToken, isAdmin, async (req, res) => {
-    const userId = parseInt(req.params.id, 10);
-    if (isNaN(userId)) {
-        return res.status(400).json({ success: false, message: 'Invalid user ID' });
-    }
+    const userId = req.params.id;
 
-    // Prevent resetting your own password via this endpoint
     if (userId === req.user.id) {
         return res.status(400).json({ success: false, message: 'Use change-password to update your own password' });
     }
 
     try {
-        const user = await new Promise((resolve, reject) => {
-            db.get('SELECT id, name, email, role FROM users WHERE id = ?', [userId], (err, row) => {
-                if (err) reject(err); else resolve(row);
-            });
-        });
-
+        const user = await User.findById(userId).select('name email role');
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
@@ -216,13 +137,9 @@ router.post('/reset-password/:id', authenticateToken, isAdmin, async (req, res) 
         const newPassword = generateSecurePassword();
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        await new Promise((resolve, reject) => {
-            db.run(
-                'UPDATE users SET password = ?, forcePasswordChange = 1 WHERE id = ?',
-                [hashedPassword, userId],
-                function (err) { if (err) reject(err); else resolve(this); }
-            );
-        });
+        user.password = hashedPassword;
+        user.forcePasswordChange = true;
+        await user.save();
 
         console.log(`🔑 Password reset by admin for user: ${user.email}`);
 
@@ -230,9 +147,8 @@ router.post('/reset-password/:id', authenticateToken, isAdmin, async (req, res) 
             success: true,
             message: `Password reset successfully for ${user.name}`,
             temporaryPassword: newPassword,
-            user: { id: user.id, name: user.name, email: user.email }
+            user: { id: user._id.toString(), name: user.name, email: user.email }
         });
-
     } catch (error) {
         console.error('❌ Reset password error:', error);
         return res.status(500).json({ success: false, message: 'Failed to reset password' });

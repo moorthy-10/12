@@ -1,61 +1,45 @@
-/**
- * notify.js — Shared notification helper
- *
- * Creates a notification row in the DB and immediately pushes it to the
- * target user's personal socket room (user:{userId}).
- *
- * Usage:
- *   const notify = require('../utils/notify');
- *   await notify(io, db, { userId, type, title, message, relatedId });
- *
- * This module is intentionally async-safe: any DB or socket error is caught
- * and logged but never propagates to the calling route, so existing routes
- * cannot be broken by a failed notification.
- */
-
 'use strict';
 
-const db = require('../config/database');
+const Notification = require('../models/Notification');
 
 /**
- * @param {import('socket.io').Server} io
- * @param {{ userId: number, type: string, title: string, message: string, relatedId?: number }} opts
+ * Create a notification record and emit it in real-time via Socket.IO.
+ * All errors are caught internally — no existing route can break.
+ *
+ * @param {object} io  - Socket.IO server instance (may be null)
+ * @param {object} opts
+ * @param {string} opts.userId    - Target user's MongoDB ID string
+ * @param {string} opts.type      - 'chat' | 'task' | 'leave' | 'attendance'
+ * @param {string} opts.title
+ * @param {string} opts.message
+ * @param {string} [opts.relatedId]
  */
-async function notify(io, { userId, type, title, message, relatedId = null }) {
+async function notify(io, { userId, type, title, message, relatedId }) {
     try {
-        // --- Validation --------------------------------------------------
-        const VALID_TYPES = ['chat', 'task', 'leave', 'attendance'];
-        if (!userId || !VALID_TYPES.includes(type) || !title || !message) {
-            console.warn('[notify] Invalid params, skipping:', { userId, type, title });
-            return null;
-        }
-
-        // --- Write to DB -------------------------------------------------
-        const notification = await new Promise((resolve, reject) => {
-            db.run(
-                `INSERT INTO notifications (user_id, type, title, message, related_id)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [userId, type, title.slice(0, 200), message.slice(0, 500), relatedId],
-                function (err) {
-                    if (err) return reject(err);
-                    db.get(
-                        'SELECT * FROM notifications WHERE id = ?',
-                        [this.lastID],
-                        (err2, row) => (err2 ? reject(err2) : resolve(row))
-                    );
-                }
-            );
+        const doc = await Notification.create({
+            user: userId,
+            type,
+            title,
+            message,
+            related_id: relatedId || null,
         });
 
-        // --- Real-time push ----------------------------------------------
         if (io) {
-            io.to(`user:${userId}`).emit('new-notification', notification);
+            const payload = {
+                id: doc._id.toString(),
+                user_id: userId,
+                type: doc.type,
+                title: doc.title,
+                message: doc.message,
+                related_id: relatedId || null,
+                is_read: 0,
+                createdAt: doc.createdAt,
+            };
+            io.to(`user:${userId}`).emit('new-notification', payload);
         }
-
-        return notification;
     } catch (err) {
-        console.error('[notify] Failed to create notification:', err.message);
-        return null; // never throw — caller must not be affected
+        // Non-fatal — never crash the calling route
+        console.error('notify() error (non-fatal):', err.message);
     }
 }
 

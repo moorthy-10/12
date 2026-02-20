@@ -1,93 +1,73 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const db = require('../config/database');
+const CalendarEvent = require('../models/CalendarEvent');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 
-// Get all calendar events (All authenticated users can view)
-router.get('/', authenticateToken, (req, res) => {
-    const { start_date, end_date, event_type, is_holiday } = req.query;
+// ── Shape helper ──────────────────────────────────────────────────────────────
+function shapeEvent(e) {
+    const obj = e.toJSON ? e.toJSON() : e;
+    const creator = e.created_by;
+    obj.created_by = creator?._id?.toString() || creator?.toString() || obj.created_by;
+    obj.created_by_name = creator?.name || undefined;
+    // Coerce is_holiday to 0/1 for legacy frontend
+    obj.is_holiday = obj.is_holiday ? 1 : 0;
+    return obj;
+}
 
-    let query = `
-    SELECT e.*, u.name as created_by_name
-    FROM calendar_events e
-    JOIN users u ON e.created_by = u.id
-    WHERE 1=1
-  `;
-    const params = [];
+// ── GET /api/calendar ──────────────────────────────────────────────────────────
+router.get('/', authenticateToken, async (req, res) => {
+    try {
+        const { start_date, end_date, event_type, is_holiday } = req.query;
+        const filter = {};
 
-    if (start_date) {
-        query += ' AND e.end_date >= ?';
-        params.push(start_date);
+        if (start_date) filter.end_date = { ...filter.end_date, $gte: start_date };
+        if (end_date) filter.start_date = { ...filter.start_date, $lte: end_date };
+        if (event_type) filter.event_type = event_type;
+        if (is_holiday !== undefined) filter.is_holiday = is_holiday === 'true' || is_holiday === '1';
+
+        const events = await CalendarEvent.find(filter)
+            .populate('created_by', 'name')
+            .sort({ start_date: 1 });
+
+        res.json({ success: true, events: events.map(shapeEvent) });
+    } catch (error) {
+        console.error('GET /calendar error:', error);
+        res.status(500).json({ success: false, message: 'Database error' });
     }
-
-    if (end_date) {
-        query += ' AND e.start_date <= ?';
-        params.push(end_date);
-    }
-
-    if (event_type) {
-        query += ' AND e.event_type = ?';
-        params.push(event_type);
-    }
-
-    if (is_holiday !== undefined) {
-        query += ' AND e.is_holiday = ?';
-        params.push(is_holiday === 'true' || is_holiday === '1' ? 1 : 0);
-    }
-
-    query += ' ORDER BY e.start_date ASC';
-
-    db.all(query, params, (err, events) => {
-        if (err) {
-            return res.status(500).json({ success: false, message: 'Database error' });
-        }
-        res.json({ success: true, events });
-    });
 });
 
-// Get single calendar event
-router.get('/:id', authenticateToken, (req, res) => {
-    db.get(`
-    SELECT e.*, u.name as created_by_name
-    FROM calendar_events e
-    JOIN users u ON e.created_by = u.id
-    WHERE e.id = ?
-  `, [req.params.id], (err, event) => {
-        if (err) {
-            return res.status(500).json({ success: false, message: 'Database error' });
-        }
-        if (!event) {
-            return res.status(404).json({ success: false, message: 'Event not found' });
-        }
-        res.json({ success: true, event });
-    });
-});
-
-// Check if a specific date is a holiday
-router.get('/check-holiday/:date', authenticateToken, (req, res) => {
+// ── GET /api/calendar/check-holiday/:date ─────────────────────────────────────
+router.get('/check-holiday/:date', authenticateToken, async (req, res) => {
     const { date } = req.params;
-
-    db.get(`
-    SELECT * FROM calendar_events
-    WHERE is_holiday = 1
-      AND start_date <= ?
-      AND end_date >= ?
-    LIMIT 1
-  `, [date, date], (err, holiday) => {
-        if (err) {
-            return res.status(500).json({ success: false, message: 'Database error' });
-        }
-
-        res.json({
-            success: true,
-            isHoliday: !!holiday,
-            holiday: holiday || null
+    try {
+        const holiday = await CalendarEvent.findOne({
+            is_holiday: true,
+            start_date: { $lte: date },
+            end_date: { $gte: date }
         });
-    });
+        res.json({ success: true, isHoliday: !!holiday, holiday: holiday ? shapeEvent(holiday) : null });
+    } catch (error) {
+        console.error('check-holiday error:', error);
+        res.status(500).json({ success: false, message: 'Database error' });
+    }
 });
 
-// Create calendar event (Admin only)
+// ── GET /api/calendar/:id ──────────────────────────────────────────────────────
+router.get('/:id', authenticateToken, async (req, res) => {
+    try {
+        const event = await CalendarEvent.findById(req.params.id).populate('created_by', 'name');
+        if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+        res.json({ success: true, event: shapeEvent(event) });
+    } catch (error) {
+        console.error('GET /calendar/:id error:', error);
+        res.status(500).json({ success: false, message: 'Database error' });
+    }
+});
+
+// ── POST /api/calendar ─────────────────────────────────────────────────────────
 router.post('/', authenticateToken, isAdmin, [
     body('title').notEmpty().trim(),
     body('description').optional().trim(),
@@ -95,49 +75,33 @@ router.post('/', authenticateToken, isAdmin, [
     body('start_date').isDate(),
     body('end_date').isDate(),
     body('is_holiday').optional().isBoolean()
-], (req, res) => {
+], async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, errors: errors.array() });
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
     const { title, description, event_type, start_date, end_date, is_holiday } = req.body;
-    const created_by = req.user.id;
 
-    // Validate end_date >= start_date
     if (new Date(end_date) < new Date(start_date)) {
-        return res.status(400).json({
-            success: false,
-            message: 'End date must be on or after start date'
-        });
+        return res.status(400).json({ success: false, message: 'End date must be on or after start date' });
     }
 
-    // If event_type is holiday, automatically set is_holiday to 1
-    const holidayFlag = event_type === 'holiday' ? 1 : (is_holiday ? 1 : 0);
+    const holidayFlag = event_type === 'holiday' ? true : !!is_holiday;
 
-    db.run(`
-    INSERT INTO calendar_events (title, description, event_type, start_date, end_date, is_holiday, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `, [title, description, event_type, start_date, end_date, holidayFlag, created_by], function (err) {
-        if (err) {
-            return res.status(500).json({ success: false, message: 'Failed to create event' });
-        }
-
-        db.get(`
-      SELECT e.*, u.name as created_by_name
-      FROM calendar_events e
-      JOIN users u ON e.created_by = u.id
-      WHERE e.id = ?
-    `, [this.lastID], (err, event) => {
-            if (err) {
-                return res.status(500).json({ success: false, message: 'Event created but failed to fetch' });
-            }
-            res.status(201).json({ success: true, message: 'Event created successfully', event });
+    try {
+        const created = await CalendarEvent.create({
+            title, description, event_type, start_date, end_date,
+            is_holiday: holidayFlag,
+            created_by: req.user.id
         });
-    });
+        const event = await CalendarEvent.findById(created._id).populate('created_by', 'name');
+        res.status(201).json({ success: true, message: 'Event created successfully', event: shapeEvent(event) });
+    } catch (error) {
+        console.error('POST /calendar error:', error);
+        res.status(500).json({ success: false, message: 'Failed to create event' });
+    }
 });
 
-// Update calendar event (Admin only)
+// ── PUT /api/calendar/:id ──────────────────────────────────────────────────────
 router.put('/:id', authenticateToken, isAdmin, [
     body('title').optional().notEmpty().trim(),
     body('description').optional().trim(),
@@ -145,75 +109,50 @@ router.put('/:id', authenticateToken, isAdmin, [
     body('start_date').optional().isDate(),
     body('end_date').optional().isDate(),
     body('is_holiday').optional().isBoolean()
-], (req, res) => {
+], async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, errors: errors.array() });
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
     const { title, description, event_type, start_date, end_date, is_holiday } = req.body;
-    const updates = [];
-    const params = [];
+    const updates = {};
 
-    if (title) { updates.push('title = ?'); params.push(title); }
-    if (description !== undefined) { updates.push('description = ?'); params.push(description); }
-    if (event_type) {
-        updates.push('event_type = ?');
-        params.push(event_type);
-        // Auto-set is_holiday if event_type is holiday
-        if (event_type === 'holiday') {
-            updates.push('is_holiday = 1');
-        }
+    if (title !== undefined) updates.title = title;
+    if (description !== undefined) updates.description = description;
+    if (event_type !== undefined) {
+        updates.event_type = event_type;
+        if (event_type === 'holiday') updates.is_holiday = true;
     }
-    if (start_date) { updates.push('start_date = ?'); params.push(start_date); }
-    if (end_date) { updates.push('end_date = ?'); params.push(end_date); }
-    if (is_holiday !== undefined) { updates.push('is_holiday = ?'); params.push(is_holiday ? 1 : 0); }
+    if (start_date !== undefined) updates.start_date = start_date;
+    if (end_date !== undefined) updates.end_date = end_date;
+    if (is_holiday !== undefined) updates.is_holiday = !!is_holiday;
 
-    if (updates.length === 0) {
+    if (Object.keys(updates).length === 0) {
         return res.status(400).json({ success: false, message: 'No fields to update' });
     }
 
-    updates.push('updated_at = CURRENT_TIMESTAMP');
-    params.push(req.params.id);
+    try {
+        const event = await CalendarEvent.findByIdAndUpdate(
+            req.params.id, { $set: updates }, { new: true }
+        ).populate('created_by', 'name');
 
-    const query = `UPDATE calendar_events SET ${updates.join(', ')} WHERE id = ?`;
-
-    db.run(query, params, function (err) {
-        if (err) {
-            return res.status(500).json({ success: false, message: 'Failed to update event' });
-        }
-
-        if (this.changes === 0) {
-            return res.status(404).json({ success: false, message: 'Event not found' });
-        }
-
-        db.get(`
-      SELECT e.*, u.name as created_by_name
-      FROM calendar_events e
-      JOIN users u ON e.created_by = u.id
-      WHERE e.id = ?
-    `, [req.params.id], (err, event) => {
-            if (err) {
-                return res.status(500).json({ success: false, message: 'Event updated but failed to fetch' });
-            }
-            res.json({ success: true, message: 'Event updated successfully', event });
-        });
-    });
+        if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+        res.json({ success: true, message: 'Event updated successfully', event: shapeEvent(event) });
+    } catch (error) {
+        console.error('PUT /calendar/:id error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update event' });
+    }
 });
 
-// Delete calendar event (Admin only)
-router.delete('/:id', authenticateToken, isAdmin, (req, res) => {
-    db.run('DELETE FROM calendar_events WHERE id = ?', [req.params.id], function (err) {
-        if (err) {
-            return res.status(500).json({ success: false, message: 'Failed to delete event' });
-        }
-
-        if (this.changes === 0) {
-            return res.status(404).json({ success: false, message: 'Event not found' });
-        }
-
+// ── DELETE /api/calendar/:id ───────────────────────────────────────────────────
+router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const result = await CalendarEvent.findByIdAndDelete(req.params.id);
+        if (!result) return res.status(404).json({ success: false, message: 'Event not found' });
         res.json({ success: true, message: 'Event deleted successfully' });
-    });
+    } catch (error) {
+        console.error('DELETE /calendar/:id error:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete event' });
+    }
 });
 
 module.exports = router;

@@ -1,265 +1,176 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const db = require('../config/database');
+const Task = require('../models/Task');
+const User = require('../models/User');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 const notify = require('../utils/notify');
 
-// Get tasks
-router.get('/', authenticateToken, (req, res) => {
-    const { status, priority, assigned_to } = req.query;
+// ── Shape helper ──────────────────────────────────────────────────────────────
+function shapeTask(t) {
+    const obj = t.toJSON();
+    obj.assigned_to = t.assigned_to._id ? t.assigned_to._id.toString() : t.assigned_to.toString();
+    obj.assigned_by = t.assigned_by._id ? t.assigned_by._id.toString() : t.assigned_by.toString();
+    obj.assigned_to_name = t.assigned_to.name || undefined;
+    obj.assigned_to_email = t.assigned_to.email || undefined;
+    obj.assigned_by_name = t.assigned_by.name || undefined;
+    return obj;
+}
 
-    let query = `
-    SELECT t.*, 
-           u1.name as assigned_to_name, u1.email as assigned_to_email,
-           u2.name as assigned_by_name
-    FROM tasks t
-    JOIN users u1 ON t.assigned_to = u1.id
-    JOIN users u2 ON t.assigned_by = u2.id
-    WHERE 1=1
-  `;
-    const params = [];
+const POP = [
+    { path: 'assigned_to', select: 'name email' },
+    { path: 'assigned_by', select: 'name' }
+];
 
-    // If employee, only show their assigned tasks
-    if (req.user.role === 'employee') {
-        query += ' AND t.assigned_to = ?';
-        params.push(req.user.id);
-    } else if (assigned_to) {
-        query += ' AND t.assigned_to = ?';
-        params.push(assigned_to);
+// ── GET /api/tasks ─────────────────────────────────────────────────────────────
+router.get('/', authenticateToken, async (req, res) => {
+    try {
+        const { status, priority, assigned_to } = req.query;
+        const filter = {};
+
+        if (req.user.role === 'employee') filter.assigned_to = req.user.id;
+        else if (assigned_to) filter.assigned_to = assigned_to;
+
+        if (status) filter.status = status;
+        if (priority) filter.priority = priority;
+
+        const tasks = await Task.find(filter).populate(POP).sort({ createdAt: -1 });
+        res.json({ success: true, tasks: tasks.map(shapeTask) });
+    } catch (error) {
+        console.error('GET /tasks error:', error);
+        res.status(500).json({ success: false, message: 'Database error' });
     }
-
-    if (status) {
-        query += ' AND t.status = ?';
-        params.push(status);
-    }
-
-    if (priority) {
-        query += ' AND t.priority = ?';
-        params.push(priority);
-    }
-
-    query += ' ORDER BY t.created_at DESC';
-
-    db.all(query, params, (err, tasks) => {
-        if (err) {
-            return res.status(500).json({ success: false, message: 'Database error' });
-        }
-        res.json({ success: true, tasks });
-    });
 });
 
-// Get single task
-router.get('/:id', authenticateToken, (req, res) => {
-    db.get(`
-    SELECT t.*, 
-           u1.name as assigned_to_name, u1.email as assigned_to_email,
-           u2.name as assigned_by_name
-    FROM tasks t
-    JOIN users u1 ON t.assigned_to = u1.id
-    JOIN users u2 ON t.assigned_by = u2.id
-    WHERE t.id = ?
-  `, [req.params.id], (err, task) => {
-        if (err) {
-            return res.status(500).json({ success: false, message: 'Database error' });
-        }
-        if (!task) {
-            return res.status(404).json({ success: false, message: 'Task not found' });
-        }
+// ── GET /api/tasks/:id ─────────────────────────────────────────────────────────
+router.get('/:id', authenticateToken, async (req, res) => {
+    try {
+        const task = await Task.findById(req.params.id).populate(POP);
+        if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
 
-        // Employees can only view their own assigned tasks
-        if (req.user.role === 'employee' && task.assigned_to !== req.user.id) {
+        if (req.user.role === 'employee' && task.assigned_to._id.toString() !== req.user.id) {
             return res.status(403).json({ success: false, message: 'Access denied' });
         }
 
-        res.json({ success: true, task });
-    });
+        res.json({ success: true, task: shapeTask(task) });
+    } catch (error) {
+        console.error('GET /tasks/:id error:', error);
+        res.status(500).json({ success: false, message: 'Database error' });
+    }
 });
 
-// Create task (Admin only)
+// ── POST /api/tasks ────────────────────────────────────────────────────────────
 router.post('/', authenticateToken, isAdmin, [
     body('title').notEmpty().trim(),
     body('description').optional().trim(),
-    body('assigned_to').isInt(),
+    body('assigned_to').notEmpty(),
     body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
     body('due_date').optional().isDate()
-], (req, res) => {
+], async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, errors: errors.array() });
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
     const { title, description, assigned_to, priority, due_date } = req.body;
     const assigned_by = req.user.id;
 
-    // Verify the assigned_to user exists
-    db.get('SELECT id FROM users WHERE id = ?', [assigned_to], (err, user) => {
-        if (!user) {
-            return res.status(400).json({ success: false, message: 'Assigned user not found' });
-        }
+    try {
+        const assignee = await User.findById(assigned_to).select('_id');
+        if (!assignee) return res.status(400).json({ success: false, message: 'Assigned user not found' });
 
-        db.run(`
-      INSERT INTO tasks (title, description, assigned_to, assigned_by, priority, due_date)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, [title, description, assigned_to, assigned_by, priority || 'medium', due_date], function (err) {
-            if (err) {
-                return res.status(500).json({ success: false, message: 'Failed to create task' });
-            }
-
-            db.get(`
-        SELECT t.*, 
-               u1.name as assigned_to_name, u1.email as assigned_to_email,
-               u2.name as assigned_by_name
-        FROM tasks t
-        JOIN users u1 ON t.assigned_to = u1.id
-        JOIN users u2 ON t.assigned_by = u2.id
-        WHERE t.id = ?
-      `, [this.lastID], (err, task) => {
-                if (err) {
-                    return res.status(500).json({ success: false, message: 'Task created but failed to fetch' });
-                }
-
-                // Fire notification (non-blocking, errors swallowed inside notify)
-                const io = req.app.get('io');
-                notify(io, {
-                    userId: assigned_to,
-                    type: 'task',
-                    title: '📋 New Task Assigned',
-                    message: `"${task.title}" has been assigned to you by ${task.assigned_by_name}.`,
-                    relatedId: task.id
-                });
-
-                res.status(201).json({ success: true, message: 'Task created successfully', task });
-            });
+        const created = await Task.create({
+            title, description, assigned_to, assigned_by,
+            priority: priority || 'medium', due_date
         });
-    });
+
+        const task = await Task.findById(created._id).populate(POP);
+
+        // Fire notification (non-blocking)
+        const io = req.app.get('io');
+        notify(io, {
+            userId: assigned_to,
+            type: 'task',
+            title: '📋 New Task Assigned',
+            message: `"${task.title}" has been assigned to you by ${task.assigned_by.name}.`,
+            relatedId: task._id.toString()
+        });
+
+        res.status(201).json({ success: true, message: 'Task created successfully', task: shapeTask(task) });
+    } catch (error) {
+        console.error('POST /tasks error:', error);
+        res.status(500).json({ success: false, message: 'Failed to create task' });
+    }
 });
 
-// Update task
+// ── PUT /api/tasks/:id ─────────────────────────────────────────────────────────
 router.put('/:id', authenticateToken, [
     body('title').optional().notEmpty().trim(),
     body('description').optional().trim(),
     body('status').optional().isIn(['pending', 'in-progress', 'completed', 'cancelled']),
     body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
     body('due_date').optional().isDate()
-], (req, res) => {
+], async (req, res) => {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, errors: errors.array() });
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
-    // First check if task exists
-    db.get('SELECT * FROM tasks WHERE id = ?', [req.params.id], (err, task) => {
-        if (err || !task) {
-            return res.status(404).json({ success: false, message: 'Task not found' });
-        }
+    try {
+        const existing = await Task.findById(req.params.id);
+        if (!existing) return res.status(404).json({ success: false, message: 'Task not found' });
 
-        // Employees can only update their own tasks and only the status field
         if (req.user.role === 'employee') {
-            if (task.assigned_to !== req.user.id) {
+            if (existing.assigned_to.toString() !== req.user.id) {
                 return res.status(403).json({ success: false, message: 'Access denied' });
             }
 
-            // Employees can ONLY update status
             const { status } = req.body;
             if (!status || Object.keys(req.body).length > 1) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Employees can only update task status'
-                });
+                return res.status(403).json({ success: false, message: 'Employees can only update task status' });
             }
 
-            const completed_at = status === 'completed' ? 'CURRENT_TIMESTAMP' : null;
+            const updates = { status };
+            if (status === 'completed') updates.completed_at = new Date();
 
-            db.run(`
-        UPDATE tasks 
-        SET status = ?, completed_at = ${completed_at ? completed_at : 'NULL'}, updated_at = CURRENT_TIMESTAMP 
-        WHERE id = ?
-      `, [status, req.params.id], function (err) {
-                if (err) {
-                    return res.status(500).json({ success: false, message: 'Failed to update task' });
-                }
-
-                db.get(`
-          SELECT t.*, 
-                 u1.name as assigned_to_name, u1.email as assigned_to_email,
-                 u2.name as assigned_by_name
-          FROM tasks t
-          JOIN users u1 ON t.assigned_to = u1.id
-          JOIN users u2 ON t.assigned_by = u2.id
-          WHERE t.id = ?
-        `, [req.params.id], (err, task) => {
-                    if (err) {
-                        return res.status(500).json({ success: false, message: 'Task updated but failed to fetch' });
-                    }
-                    res.json({ success: true, message: 'Task status updated successfully', task });
-                });
-            });
-        } else {
-            // Admin can update all fields
-            const { title, description, status, priority, due_date, assigned_to } = req.body;
-            const updates = [];
-            const params = [];
-
-            if (title) { updates.push('title = ?'); params.push(title); }
-            if (description !== undefined) { updates.push('description = ?'); params.push(description); }
-            if (status) {
-                updates.push('status = ?');
-                params.push(status);
-                if (status === 'completed') {
-                    updates.push('completed_at = CURRENT_TIMESTAMP');
-                }
-            }
-            if (priority) { updates.push('priority = ?'); params.push(priority); }
-            if (due_date !== undefined) { updates.push('due_date = ?'); params.push(due_date); }
-            if (assigned_to) { updates.push('assigned_to = ?'); params.push(assigned_to); }
-
-            if (updates.length === 0) {
-                return res.status(400).json({ success: false, message: 'No fields to update' });
-            }
-
-            updates.push('updated_at = CURRENT_TIMESTAMP');
-            params.push(req.params.id);
-
-            const query = `UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`;
-
-            db.run(query, params, function (err) {
-                if (err) {
-                    return res.status(500).json({ success: false, message: 'Failed to update task' });
-                }
-
-                db.get(`
-          SELECT t.*, 
-                 u1.name as assigned_to_name, u1.email as assigned_to_email,
-                 u2.name as assigned_by_name
-          FROM tasks t
-          JOIN users u1 ON t.assigned_to = u1.id
-          JOIN users u2 ON t.assigned_by = u2.id
-          WHERE t.id = ?
-        `, [req.params.id], (err, task) => {
-                    if (err) {
-                        return res.status(500).json({ success: false, message: 'Task updated but failed to fetch' });
-                    }
-                    res.json({ success: true, message: 'Task updated successfully', task });
-                });
-            });
+            const task = await Task.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true }).populate(POP);
+            return res.json({ success: true, message: 'Task status updated successfully', task: shapeTask(task) });
         }
-    });
+
+        // Admin — all fields
+        const { title, description, status, priority, due_date, assigned_to } = req.body;
+        const updates = {};
+
+        if (title !== undefined) updates.title = title;
+        if (description !== undefined) updates.description = description;
+        if (priority !== undefined) updates.priority = priority;
+        if (due_date !== undefined) updates.due_date = due_date;
+        if (assigned_to !== undefined) updates.assigned_to = assigned_to;
+        if (status !== undefined) {
+            updates.status = status;
+            if (status === 'completed') updates.completed_at = new Date();
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(400).json({ success: false, message: 'No fields to update' });
+        }
+
+        const task = await Task.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true }).populate(POP);
+        res.json({ success: true, message: 'Task updated successfully', task: shapeTask(task) });
+    } catch (error) {
+        console.error('PUT /tasks/:id error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update task' });
+    }
 });
 
-// Delete task (Admin only)
-router.delete('/:id', authenticateToken, isAdmin, (req, res) => {
-    db.run('DELETE FROM tasks WHERE id = ?', [req.params.id], function (err) {
-        if (err) {
-            return res.status(500).json({ success: false, message: 'Failed to delete task' });
-        }
-
-        if (this.changes === 0) {
-            return res.status(404).json({ success: false, message: 'Task not found' });
-        }
-
+// ── DELETE /api/tasks/:id ──────────────────────────────────────────────────────
+router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const result = await Task.findByIdAndDelete(req.params.id);
+        if (!result) return res.status(404).json({ success: false, message: 'Task not found' });
         res.json({ success: true, message: 'Task deleted successfully' });
-    });
+    } catch (error) {
+        console.error('DELETE /tasks error:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete task' });
+    }
 });
 
 module.exports = router;

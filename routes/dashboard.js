@@ -1,113 +1,140 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
-const db = require('../config/database');
+const Attendance = require('../models/Attendance');
+const Leave = require('../models/Leave');
+const User = require('../models/User');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 
-// Helper: wrap db.get in a Promise
-const dbGet = (sql, params) =>
-    new Promise((resolve, reject) =>
-        db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)))
-    );
-
-// Get dashboard statistics (Admin) — parallel queries for speed
+// ── GET /api/dashboard/admin/stats ────────────────────────────────────────────
 router.get('/admin/stats', authenticateToken, isAdmin, async (req, res) => {
     try {
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+
+        const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
         const [
-            totalUsersRow,
-            activeUsersRow,
-            todayAttendanceRow,
-            presentTodayRow,
-            pendingLeavesRow,
-            approvedLeavesMonthRow
+            totalUsers,
+            activeUsers,
+            todayAttendance,
+            presentToday,
+            pendingLeaves,
+            approvedLeavesThisMonth
         ] = await Promise.all([
-            dbGet('SELECT COUNT(*) as total FROM users', []),
-            dbGet('SELECT COUNT(*) as total FROM users WHERE status = "active"', []),
-            dbGet('SELECT COUNT(*) as total FROM attendance WHERE date = DATE("now")', []),
-            dbGet('SELECT COUNT(*) as total FROM attendance WHERE date = DATE("now") AND status = "present"', []),
-            dbGet('SELECT COUNT(*) as total FROM leaves WHERE status = "pending"', []),
-            dbGet(`SELECT COUNT(*) as total FROM leaves WHERE status = "approved" AND strftime('%Y-%m', start_date) = strftime('%Y-%m', 'now')`, [])
+            User.countDocuments(),
+            User.countDocuments({ status: 'active' }),
+            Attendance.countDocuments({ date: today }),
+            Attendance.countDocuments({ date: today, status: 'present' }),
+            Leave.countDocuments({ status: 'pending' }),
+            Leave.countDocuments({
+                status: 'approved',
+                start_date: { $regex: `^${yearMonth}` }
+            })
         ]);
 
         res.json({
             success: true,
             stats: {
-                totalUsers: totalUsersRow.total,
-                activeUsers: activeUsersRow.total,
-                todayAttendance: todayAttendanceRow.total,
-                presentToday: presentTodayRow.total,
-                pendingLeaves: pendingLeavesRow.total,
-                approvedLeavesThisMonth: approvedLeavesMonthRow.total
+                totalUsers,
+                activeUsers,
+                todayAttendance,
+                presentToday,
+                pendingLeaves,
+                approvedLeavesThisMonth
             }
         });
-    } catch (err) {
-        console.error('Dashboard admin stats error:', err);
+    } catch (error) {
+        console.error('Dashboard admin stats error:', error);
         res.status(500).json({ success: false, message: 'Database error' });
     }
 });
 
-// Get dashboard statistics (Employee) — parallel queries for speed
+// ── GET /api/dashboard/employee/stats ─────────────────────────────────────────
 router.get('/employee/stats', authenticateToken, async (req, res) => {
     const userId = req.user.id;
+
     try {
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
         const [
-            totalAttRow,
-            presentMonthRow,
-            totalLeavesRow,
-            pendingLeavesRow,
-            approvedLeavesRow,
-            todayRow
+            totalAttendance,
+            presentThisMonth,
+            totalLeaves,
+            pendingLeaves,
+            approvedLeaves,
+            todayRec
         ] = await Promise.all([
-            dbGet('SELECT COUNT(*) as total FROM attendance WHERE user_id = ?', [userId]),
-            dbGet(`SELECT COUNT(*) as total FROM attendance WHERE user_id = ? AND status = "present" AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')`, [userId]),
-            dbGet('SELECT COUNT(*) as total FROM leaves WHERE user_id = ?', [userId]),
-            dbGet('SELECT COUNT(*) as total FROM leaves WHERE user_id = ? AND status = "pending"', [userId]),
-            dbGet('SELECT COUNT(*) as total FROM leaves WHERE user_id = ? AND status = "approved"', [userId]),
-            dbGet('SELECT * FROM attendance WHERE user_id = ? AND date = DATE("now")', [userId])
+            Attendance.countDocuments({ user: userId }),
+            Attendance.countDocuments({ user: userId, status: 'present', date: { $regex: `^${yearMonth}` } }),
+            Leave.countDocuments({ user: userId }),
+            Leave.countDocuments({ user: userId, status: 'pending' }),
+            Leave.countDocuments({ user: userId, status: 'approved' }),
+            Attendance.findOne({ user: userId, date: today })
         ]);
 
         res.json({
             success: true,
             stats: {
-                totalAttendance: totalAttRow.total,
-                presentThisMonth: presentMonthRow.total,
-                totalLeaves: totalLeavesRow.total,
-                pendingLeaves: pendingLeavesRow.total,
-                approvedLeaves: approvedLeavesRow.total,
-                attendanceToday: todayRow || null
+                totalAttendance,
+                presentThisMonth,
+                totalLeaves,
+                pendingLeaves,
+                approvedLeaves,
+                attendanceToday: todayRec ? todayRec.toJSON() : null
             }
         });
-    } catch (err) {
-        console.error('Dashboard employee stats error:', err);
+    } catch (error) {
+        console.error('Dashboard employee stats error:', error);
         res.status(500).json({ success: false, message: 'Database error' });
     }
 });
 
-// Get recent activities (Admin)
-// FIX: SQLite UNION ALL ORDER BY must reference the column alias from the first SELECT,
-// not a table-qualified name. Wrapped with a subquery to make column reference unambiguous.
-router.get('/admin/recent-activities', authenticateToken, isAdmin, (req, res) => {
-    const limit = parseInt(req.query.limit) || 10;
+// ── GET /api/dashboard/admin/recent-activities ────────────────────────────────
+router.get('/admin/recent-activities', authenticateToken, isAdmin, async (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit) || 10, 50);
 
-    db.all(`
-    SELECT * FROM (
-      SELECT 'attendance' as type, a.id, a.date as activity_date, a.status,
-             u.name as user_name, a.created_at
-      FROM attendance a
-      JOIN users u ON a.user_id = u.id
-      UNION ALL
-      SELECT 'leave' as type, l.id, l.start_date as activity_date, l.status,
-             u.name as user_name, l.created_at
-      FROM leaves l
-      JOIN users u ON l.user_id = u.id
-    ) ORDER BY created_at DESC
-    LIMIT ?
-  `, [limit], (err, activities) => {
-        if (err) {
-            console.error('Recent activities query error:', err);
-            return res.status(500).json({ success: false, message: 'Database error' });
-        }
+    try {
+        const [attendanceRecs, leaveRecs] = await Promise.all([
+            Attendance.find()
+                .populate('user', 'name')
+                .sort({ createdAt: -1 })
+                .limit(limit),
+            Leave.find()
+                .populate('user', 'name')
+                .sort({ createdAt: -1 })
+                .limit(limit)
+        ]);
+
+        const activities = [
+            ...attendanceRecs.map(a => ({
+                type: 'attendance',
+                id: a._id.toString(),
+                activity_date: a.date,
+                status: a.status,
+                user_name: a.user?.name || 'Unknown',
+                created_at: a.createdAt
+            })),
+            ...leaveRecs.map(l => ({
+                type: 'leave',
+                id: l._id.toString(),
+                activity_date: l.start_date,
+                status: l.status,
+                user_name: l.user?.name || 'Unknown',
+                created_at: l.createdAt
+            }))
+        ]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            .slice(0, limit);
+
         res.json({ success: true, activities });
-    });
+    } catch (error) {
+        console.error('Recent activities error:', error);
+        res.status(500).json({ success: false, message: 'Database error' });
+    }
 });
 
 module.exports = router;

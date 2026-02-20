@@ -1,12 +1,14 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const db = require('../config/database');
+const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
 
-// Login
+// ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post('/login', [
     body('email').isEmail().normalizeEmail(),
     body('password').notEmpty()
@@ -19,66 +21,62 @@ router.post('/login', [
     const { email, password } = req.body;
 
     try {
-        db.get('SELECT * FROM users WHERE email = ?', [email], async (err, user) => {
-            if (err) {
-                return res.status(500).json({ success: false, message: 'Database error' });
+        // Must select password explicitly (toJSON strips it)
+        const user = await User.findOne({ email }).select('+password');
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        if (user.status === 'inactive') {
+            return res.status(403).json({ success: false, message: 'Account is inactive' });
+        }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign(
+            { id: user._id.toString(), email: user.email, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.json({
+            success: true,
+            message: 'Login successful',
+            token,
+            user: {
+                id: user._id.toString(),
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                department: user.department,
+                position: user.position
             }
-
-            if (!user) {
-                return res.status(401).json({ success: false, message: 'Invalid credentials' });
-            }
-
-            if (user.status === 'inactive') {
-                return res.status(403).json({ success: false, message: 'Account is inactive' });
-            }
-
-            const isPasswordValid = await bcrypt.compare(password, user.password);
-            if (!isPasswordValid) {
-                return res.status(401).json({ success: false, message: 'Invalid credentials' });
-            }
-
-            const token = jwt.sign(
-                { id: user.id, email: user.email, role: user.role },
-                process.env.JWT_SECRET,
-                { expiresIn: '24h' }
-            );
-
-            res.json({
-                success: true,
-                message: 'Login successful',
-                token,
-                user: {
-                    id: user.id,
-                    name: user.name,
-                    email: user.email,
-                    role: user.role,
-                    department: user.department,
-                    position: user.position
-                }
-            });
         });
     } catch (error) {
+        console.error('Login error:', error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 
-// Get current user
-router.get('/me', authenticateToken, (req, res) => {
-    db.get('SELECT id, name, email, role, department, position, phone, status FROM users WHERE id = ?',
-        [req.user.id],
-        (err, user) => {
-            if (err) {
-                return res.status(500).json({ success: false, message: 'Database error' });
-            }
-            if (!user) {
-                return res.status(404).json({ success: false, message: 'User not found' });
-            }
-            res.json({ success: true, user });
+// ── GET /api/auth/me ──────────────────────────────────────────────────────────
+router.get('/me', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id)
+            .select('name email role department position phone status');
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
         }
-    );
+        res.json({ success: true, user });
+    } catch (error) {
+        console.error('/me error:', error);
+        res.status(500).json({ success: false, message: 'Database error' });
+    }
 });
 
-// Change password
+// ── PUT /api/auth/change-password ─────────────────────────────────────────────
 router.put('/change-password', authenticateToken, [
     body('currentPassword').notEmpty(),
     body('newPassword').isLength({ min: 6 })
@@ -91,29 +89,22 @@ router.put('/change-password', authenticateToken, [
     const { currentPassword, newPassword } = req.body;
 
     try {
-        db.get('SELECT * FROM users WHERE id = ?', [req.user.id], async (err, user) => {
-            if (err || !user) {
-                return res.status(500).json({ success: false, message: 'Database error' });
-            }
+        const user = await User.findById(req.user.id).select('+password');
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
 
-            const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
-            if (!isPasswordValid) {
-                return res.status(401).json({ success: false, message: 'Current password is incorrect' });
-            }
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+        }
 
-            const hashedPassword = await bcrypt.hash(newPassword, 10);
+        user.password = await bcrypt.hash(newPassword, 10);
+        await user.save();
 
-            db.run('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-                [hashedPassword, req.user.id],
-                (err) => {
-                    if (err) {
-                        return res.status(500).json({ success: false, message: 'Failed to update password' });
-                    }
-                    res.json({ success: true, message: 'Password updated successfully' });
-                }
-            );
-        });
+        res.json({ success: true, message: 'Password updated successfully' });
     } catch (error) {
+        console.error('Change password error:', error);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 });

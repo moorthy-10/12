@@ -1,49 +1,39 @@
-const db = require('../config/database');
+'use strict';
 
-// Check if a specific date is a holiday
-const isHolidayDate = (date, callback) => {
-    db.get(`
-    SELECT * FROM calendar_events
-    WHERE is_holiday = 1
-      AND start_date <= ?
-      AND end_date >= ?
-    LIMIT 1
-  `, [date, date], (err, holiday) => {
-        if (err) {
-            return callback(err, null);
-        }
-        callback(null, holiday);
+const CalendarEvent = require('../models/CalendarEvent');
+const Attendance = require('../models/Attendance');
+
+/**
+ * Check if a specific date (YYYY-MM-DD) is a holiday.
+ * Async/await version for routes; callback form kept for backward compat.
+ */
+const isHolidayDate = async (date) => {
+    return CalendarEvent.findOne({
+        is_holiday: true,
+        start_date: { $lte: date },
+        end_date: { $gte: date }
     });
 };
 
-// Auto-mark attendance as holiday for a user
-const autoMarkHoliday = (user_id, date, holidayTitle, callback) => {
-    db.run(`
-    INSERT INTO attendance (user_id, date, status, notes)
-    VALUES (?, ?, 'leave', ?)
-  `, [user_id, date, `Holiday: ${holidayTitle}`], function (err) {
-        if (err) {
-            return callback(err, null);
-        }
-
-        db.get(`
-      SELECT a.*, u.name as user_name, u.email, u.department
-      FROM attendance a
-      JOIN users u ON a.user_id = u.id
-      WHERE a.id = ?
-    `, [this.lastID], (err, record) => {
-            callback(err, record);
-        });
+/**
+ * Auto-mark attendance as holiday for a user.
+ * Returns the created + populated attendance doc.
+ */
+const autoMarkHoliday = async (user_id, date, holidayTitle) => {
+    const created = await Attendance.create({
+        user: user_id,
+        date,
+        status: 'leave',
+        notes: `Holiday: ${holidayTitle}`
     });
+    return Attendance.findById(created._id).populate('user', 'name email department');
 };
 
-// Check if user already has attendance for a date
-const hasAttendanceForDate = (user_id, date, callback) => {
-    db.get('SELECT * FROM attendance WHERE user_id = ? AND date = ?', [user_id, date], callback);
+/**
+ * Check if user already has attendance for a date.
+ */
+const hasAttendanceForDate = (user_id, date) => {
+    return Attendance.findOne({ user: user_id, date });
 };
 
-module.exports = {
-    isHolidayDate,
-    autoMarkHoliday,
-    hasAttendanceForDate
-};
+module.exports = { isHolidayDate, autoMarkHoliday, hasAttendanceForDate };

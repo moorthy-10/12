@@ -5,6 +5,8 @@ const path = require('path');
 const { Server } = require('socket.io');
 require('dotenv').config();
 
+const connectDB = require('./config/mongo');
+
 const app = express();
 
 // Middleware
@@ -94,8 +96,17 @@ initSocket(io);
 // ── Start Server ────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-httpServer.listen(PORT, () => {
-  console.log(`🚀 GenLab server running on port ${PORT}`);
-  console.log(`📍 API available at http://localhost:${PORT}/api`);
-  console.log(`🔌 Socket.io ready`);
+async function main() {
+  await connectDB();
+
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 GenLab server running on port ${PORT}`);
+    console.log(`📍 API available at http://localhost:${PORT}/api`);
+    console.log(`🔌 Socket.io ready`);
+  });
+}
+
+main().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });
