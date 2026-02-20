@@ -11,9 +11,12 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? false
-    : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://www.moorthyvk.online",
+    "https://one2-mti6.onrender.com"
+  ],
   credentials: true
 }));
 app.use(express.json());
@@ -78,9 +81,12 @@ const httpServer = http.createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.NODE_ENV === 'production'
-      ? false
-      : ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: [
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+      "https://www.moorthyvk.online",
+      "https://one2-mti6.onrender.com"
+    ],
     methods: ['GET', 'POST'],
     credentials: true
   }
