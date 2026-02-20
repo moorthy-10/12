@@ -49,6 +49,10 @@
   --transition: all 0.2s ease;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -64,6 +68,7 @@ body {
   background-color: var(--gray-50);
   color: var(--gray-900);
   line-height: 1.6;
+  overflow-x: hidden;
 }
 
 code {
@@ -346,10 +351,16 @@ code {
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-xl);
   max-width: 500px;
-  width: 90%;
+  width: calc(100% - 2rem);
   max-height: 90vh;
   overflow-y: auto;
   animation: slideUp 0.3s ease;
+}
+
+@media (min-width: 640px) {
+  .modal {
+    width: 90%;
+  }
 }
 
 @keyframes slideUp {
@@ -404,9 +415,10 @@ code {
 }
 
 .modal-footer {
-  padding: 1.5rem;
+  padding: 1rem 1.5rem;
   border-top: 1px solid var(--gray-200);
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   justify-content: flex-end;
 }
@@ -505,4 +517,52 @@ code {
   justify-content: center;
   align-items: center;
   min-height: 300px;
+}
+
+/* ── Responsive Utilities ─────────────────────────────────────────────────── */
+
+/* Prevent elements from breaching parent on mobile */
+.responsive-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* Button group that wraps on small screens */
+.btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Responsive grid */
+.responsive-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Responsive table — allow horizontal scroll on small screens */
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-200);
+}
+
+/* Form group full width */
+.form-group {
+  width: 100%;
 }

@@ -1,15 +1,44 @@
+/* ── MainLayout — Mobile-First ──────────────────────────────────────────── */
+
 .main-layout {
     display: flex;
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
+/* Mobile: no sidebar margin — content takes full width */
 .main-content {
     flex: 1;
-    margin-left: var(--sidebar-width);
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
     padding-top: var(--header-height);
+    transition: margin-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .page-content {
-    padding: 2rem;
-    max-width: 1600px;
+    padding: 1rem;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+}
+
+/* ── Tablet (768px+) ─────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+    .page-content {
+        padding: 1.5rem;
+    }
+}
+
+/* ── Laptop/Desktop (1024px+) — add sidebar margin ────────────────────────*/
+@media (min-width: 1024px) {
+    .main-content {
+        margin-left: var(--sidebar-width);
+    }
+
+    .page-content {
+        padding: 2rem;
+        max-width: 1600px;
+    }
 }

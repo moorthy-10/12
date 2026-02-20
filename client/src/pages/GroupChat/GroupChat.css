@@ -1,23 +1,31 @@
-/* ── Page layout sits inside MainLayout ─────────────────────────────────── */
+/* ── Page layout sits inside MainLayout ───────────────────────────────────── */
 .groupchat-page {
     display: flex;
     flex-direction: column;
     height: calc(100vh - var(--header-height));
     background: var(--gray-50);
     overflow: hidden;
+    min-width: 0;
 }
 
-/* ── Chat Header ─────────────────────────────────────────────────────────── */
+/* ── Chat Header ──────────────────────────────────────────────────────────── */
 .chat-header {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 0.875rem 1.5rem;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
     background: white;
     border-bottom: 1px solid var(--gray-200);
     box-shadow: var(--shadow-sm);
     flex-shrink: 0;
     flex-wrap: wrap;
+}
+
+@media (min-width: 768px) {
+    .chat-header {
+        gap: 1rem;
+        padding: 0.875rem 1.5rem;
+    }
 }
 
 .chat-header-info {
@@ -29,23 +37,40 @@
 }
 
 .chat-header-avatar {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: 50%;
     background: var(--primary);
     color: #000;
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 0.9rem;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
 }
 
+@media (min-width: 768px) {
+    .chat-header-avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+        font-size: 1rem;
+    }
+}
+
 .chat-header-name {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: var(--gray-900);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (min-width: 768px) {
+    .chat-header-name {
+        font-size: 1rem;
+    }
 }
 
 .chat-header-members {
@@ -56,7 +81,13 @@
 .chat-header-actions {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+    .chat-header-actions {
+        gap: 0.75rem;
+    }
 }
 
 /* ── Connection Indicator ────────────────────────────────────────────────── */
@@ -108,20 +139,35 @@
     }
 }
 
-/* ── Chat Body ───────────────────────────────────────────────────────────── */
+/* ── Chat Body ────────────────────────────────────────────────────────────── */
 .chat-body {
     display: flex;
     flex: 1;
     overflow: hidden;
 }
 
-/* ── Members Panel ───────────────────────────────────────────────────────── */
+/* ── Members Panel — hidden on mobile ─────────────────────────────────────── */
 .members-panel {
-    width: 220px;
+    display: none;
+    /* Hidden on mobile */
     border-right: 1px solid var(--gray-200);
     background: white;
     overflow-y: auto;
     flex-shrink: 0;
+}
+
+/* Show on tablet+ */
+@media (min-width: 768px) {
+    .members-panel {
+        display: block;
+        width: 170px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .members-panel {
+        width: 220px;
+    }
 }
 
 .members-panel-header {
@@ -159,6 +205,9 @@
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--gray-900);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .member-role {
@@ -167,15 +216,21 @@
     text-transform: capitalize;
 }
 
-/* ── Messages Area ───────────────────────────────────────────────────────── */
+/* ── Messages Area ────────────────────────────────────────────────────────── */
 .messages-area {
     flex: 1;
     overflow-y: auto;
-    padding: 1.25rem 1.5rem;
+    padding: 0.875rem;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     scroll-behavior: smooth;
+}
+
+@media (min-width: 768px) {
+    .messages-area {
+        padding: 1.25rem 1.5rem;
+    }
 }
 
 .messages-empty {
@@ -189,13 +244,19 @@
     font-size: 0.9rem;
 }
 
-/* ── Message Bubbles ─────────────────────────────────────────────────────── */
+/* ── Message Bubbles ──────────────────────────────────────────────────────── */
 .msg-wrapper {
     display: flex;
     align-items: flex-end;
     gap: 0.5rem;
-    max-width: 72%;
+    max-width: 88%;
     animation: msgIn 0.18s ease;
+}
+
+@media (min-width: 768px) {
+    .msg-wrapper {
+        max-width: 72%;
+    }
 }
 
 @keyframes msgIn {
@@ -270,9 +331,15 @@
 }
 
 .msg-text {
-    font-size: 0.9rem;
+    font-size: 0.875rem;
     line-height: 1.5;
     white-space: pre-wrap;
+}
+
+@media (min-width: 768px) {
+    .msg-text {
+        font-size: 0.9rem;
+    }
 }
 
 .msg-time {
@@ -282,10 +349,16 @@
     align-self: flex-end;
 }
 
-/* ── File Attachment ─────────────────────────────────────────────────────── */
+/* ── File Attachment ──────────────────────────────────────────────────────── */
 .file-bubble {
     padding: 0.75rem;
-    min-width: 180px;
+    min-width: 150px;
+}
+
+@media (min-width: 768px) {
+    .file-bubble {
+        min-width: 180px;
+    }
 }
 
 .file-attachment {
@@ -295,9 +368,15 @@
 }
 
 .file-icon {
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     line-height: 1;
     flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .file-icon {
+        font-size: 1.75rem;
+    }
 }
 
 .file-info {
@@ -325,30 +404,45 @@
     color: #1e40af;
 }
 
-/* ── Input Bar ───────────────────────────────────────────────────────────── */
+/* ── Input Bar ────────────────────────────────────────────────────────────── */
 .chat-input-bar {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
-    padding: 0.875rem 1.5rem;
+    gap: 0.5rem;
+    padding: 0.75rem 0.875rem;
     background: white;
     border-top: 1px solid var(--gray-200);
     flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .chat-input-bar {
+        gap: 0.625rem;
+        padding: 0.875rem 1.5rem;
+    }
 }
 
 .btn-attach {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: 50%;
     background: var(--gray-100);
     cursor: pointer;
-    font-size: 1.125rem;
+    font-size: 1rem;
     transition: var(--transition);
     border: none;
     flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .btn-attach {
+        width: 2.5rem;
+        height: 2.5rem;
+        font-size: 1.125rem;
+    }
 }
 
 .btn-attach:hover:not(.disabled) {
@@ -363,13 +457,21 @@
 
 .chat-input {
     flex: 1;
-    padding: 0.625rem 1rem;
+    padding: 0.55rem 0.875rem;
     border: 1.5px solid var(--gray-200);
     border-radius: 9999px;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
     background: var(--gray-50);
     outline: none;
     transition: var(--transition);
+    min-width: 0;
+}
+
+@media (min-width: 768px) {
+    .chat-input {
+        padding: 0.625rem 1rem;
+        font-size: 0.9rem;
+    }
 }
 
 .chat-input:focus {
@@ -384,19 +486,27 @@
 }
 
 .btn-send {
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: 50%;
     background: var(--primary);
     color: #000;
     border: none;
     cursor: pointer;
-    font-size: 1.125rem;
+    font-size: 1rem;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: var(--transition);
     flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .btn-send {
+        width: 2.5rem;
+        height: 2.5rem;
+        font-size: 1.125rem;
+    }
 }
 
 .btn-send:hover:not(:disabled) {
@@ -409,16 +519,22 @@
     cursor: not-allowed;
 }
 
-/* ── Error Banner ────────────────────────────────────────────────────────── */
+/* ── Error Banner ─────────────────────────────────────────────────────────── */
 .chat-error-banner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.625rem 1.5rem;
+    padding: 0.625rem 1rem;
     background: var(--danger-light);
     color: #991b1b;
     font-size: 0.8125rem;
     flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .chat-error-banner {
+        padding: 0.625rem 1.5rem;
+    }
 }
 
 .chat-error-banner button {
@@ -429,15 +545,21 @@
     font-weight: 600;
 }
 
-/* ── Access Denied / Error ───────────────────────────────────────────────── */
+/* ── Access Denied / Error ────────────────────────────────────────────────── */
 .chat-error-state {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 1rem;
-    padding: 5rem 2rem;
+    padding: 3rem 1.5rem;
     text-align: center;
+}
+
+@media (min-width: 768px) {
+    .chat-error-state {
+        padding: 5rem 2rem;
+    }
 }
 
 .chat-error-state h3 {

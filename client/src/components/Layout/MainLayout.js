@@ -1,14 +1,22 @@
 import './MainLayout.css';
-import React from 'react';
+import React, { useState } from 'react';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
 const MainLayout = ({ title, children }) => {
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
     return (
         <div className="main-layout">
-            <Sidebar />
+            <Sidebar
+                isOpen={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
+            />
             <div className="main-content">
-                <Header title={title} />
+                <Header
+                    title={title}
+                    onMenuToggle={() => setSidebarOpen(prev => !prev)}
+                />
                 <main className="page-content">
                     {children}
                 </main>

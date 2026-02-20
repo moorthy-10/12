@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 
-const Header = ({ title }) => {
+const Header = ({ title, onMenuToggle }) => {
     const { logout, isAdmin } = useAuth();
     const navigate = useNavigate();
 
@@ -16,12 +16,25 @@ const Header = ({ title }) => {
     return (
         <header className="header">
             <div className="header-content">
-                <h1 className="header-title">{title}</h1>
+                <div className="header-left">
+                    {/* Hamburger — only visible on mobile/tablet */}
+                    <button
+                        className="hamburger-btn"
+                        onClick={onMenuToggle}
+                        aria-label="Toggle navigation menu"
+                        id="hamburger-toggle"
+                    >
+                        <span className="hamburger-line"></span>
+                        <span className="hamburger-line"></span>
+                        <span className="hamburger-line"></span>
+                    </button>
+                    <h1 className="header-title">{title}</h1>
+                </div>
 
                 <div className="header-actions">
                     <NotificationBell isAdmin={isAdmin} />
                     <button className="btn btn-secondary btn-sm" onClick={handleLogout}>
-                        🚪 Logout
+                        🚪 <span className="logout-label">Logout</span>
                     </button>
                 </div>
             </div>
