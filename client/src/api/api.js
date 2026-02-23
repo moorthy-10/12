@@ -125,7 +125,7 @@ export const privateMessageAPI = {
 
 // Event Calendar APIs
 export const eventAPI = {
-    getByMonth: (month) => api.get(`/events?month=${month}`),
+    getByMonth: (month, myEvents = false) => api.get(`/events?month=${month}${myEvents ? '&myEvents=true' : ''}`),
     getById: (id) => api.get(`/events/${id}`),
     create: (data) => api.post('/events', data),
     update: (id, data) => api.put(`/events/${id}`, data),

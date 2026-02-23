@@ -512,6 +512,72 @@
     }
 }
 
+/* ── My Events Only Toggle ─────────────────────────────────────────────────── */
+.cc-my-events-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+    margin-left: auto;
+    /* push to the right of legend items */
+    user-select: none;
+    flex-shrink: 0;
+}
+
+/* Hide the real checkbox */
+.cc-my-events-toggle input[type='checkbox'] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* Pill track */
+.cc-toggle-track {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--gray-300, #d1d5db);
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+}
+
+/* Thumb */
+.cc-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s ease;
+}
+
+/* Checked state */
+.cc-my-events-toggle input:checked~.cc-toggle-track {
+    background: var(--primary, #bcf000);
+}
+
+.cc-my-events-toggle input:checked~.cc-toggle-track .cc-toggle-thumb {
+    transform: translateX(16px);
+}
+
+.cc-toggle-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--gray-700, #374151);
+    white-space: nowrap;
+}
+
+/* When filter is active, tint the label green */
+.cc-my-events-toggle input:checked~.cc-toggle-label,
+.cc-my-events-toggle:has(input:checked) .cc-toggle-label {
+    color: #059669;
+}
+
 /* ── Tagged Event Highlight ────────────────────────────────────────────────── */
 /* Applied to the event pill wrapper when the logged-in user is tagged.
    Does NOT override background/border-color set by FullCalendar on the

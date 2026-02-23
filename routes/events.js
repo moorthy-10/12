@@ -5,6 +5,7 @@ const router = express.Router();
 const { body, query, validationResult } = require('express-validator');
 const CalendarEvent = require('../models/CalendarEvent');
 const User = require('../models/User');
+const notify = require('../utils/notify');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -106,7 +107,8 @@ function formatEvent(ev) {
 
 // ── GET /api/events?month=YYYY-MM ─────────────────────────────────────────────
 router.get('/', authenticateToken, [
-    query('month').optional().matches(/^\d{4}-\d{2}$/)
+    query('month').optional().matches(/^\d{4}-\d{2}$/),
+    query('myEvents').optional().isIn(['true', 'false'])
 ], async (req, res) => {
     try {
         let rangeStart, rangeEnd;
@@ -124,13 +126,32 @@ router.get('/', authenticateToken, [
         const rsStr = rangeStart.toISOString().slice(0, 10);
         const reStr = rangeEnd.toISOString().slice(0, 10);
 
-        // Fetch all events that overlap the range OR are recurring
-        const rows = await CalendarEvent.find({
+        // Build base date/recurrence filter
+        const baseFilter = {
             $or: [
                 { start_date: { $lte: reStr }, end_date: { $gte: rsStr } },
                 { recurrence: { $nin: ['none', ''] } }
             ]
-        })
+        };
+
+        // Optional: filter to only events where requester is creator or participant
+        const myEvents = req.query.myEvents === 'true';
+        const dbFilter = myEvents
+            ? {
+                $and: [
+                    baseFilter,
+                    {
+                        $or: [
+                            { created_by: req.user.id },
+                            { participants: req.user.id }
+                        ]
+                    }
+                ]
+            }
+            : baseFilter;
+
+        // Fetch events
+        const rows = await CalendarEvent.find(dbFilter)
             .populate('created_by', 'name')
             .populate('participants', '_id')
             .sort({ start_date: 1 });
@@ -232,6 +253,21 @@ router.post('/', authenticateToken, isAdmin, [
         plain.created_by_name = event.created_by?.name;
 
         res.status(201).json({ success: true, message: 'Event created', event: formatEvent(plain) });
+
+        // ── Notify tagged participants (non-blocking, after response sent) ──
+        const io = req.app.get('io');
+        const creatorId = req.user.id.toString();
+        for (const pid of participantIds) {
+            const pidStr = pid.toString();
+            if (pidStr === creatorId) continue; // skip self-notification
+            notify(io, {
+                userId: pidStr,
+                type: 'calendar',
+                title: '📅 You were tagged in an event',
+                message: `You have been added to event: ${title}`,
+                relatedId: created._id.toString()
+            });
+        }
     } catch (error) {
         console.error('POST /api/events error:', error);
         res.status(500).json({ success: false, message: 'Failed to create event' });
@@ -279,7 +315,8 @@ router.put('/:id', authenticateToken, isAdmin, [
         updates.end_time = !allDay && endDate.includes('T') ? endDate.slice(11, 16) : null;
     }
 
-    // Handle participants update
+    // Handle participants update — capture old list before overwriting for diff
+    let newParticipantIds = null; // null = not changed
     if (Array.isArray(rawParticipants)) {
         if (rawParticipants.length > 0) {
             const found = await User.find({ _id: { $in: rawParticipants } }).select('_id');
@@ -287,6 +324,7 @@ router.put('/:id', authenticateToken, isAdmin, [
         } else {
             updates.participants = []; // allow clearing participants
         }
+        newParticipantIds = updates.participants;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -294,6 +332,10 @@ router.put('/:id', authenticateToken, isAdmin, [
     }
 
     try {
+        // Fetch existing participants before update (for diff-based notification)
+        const existing = await CalendarEvent.findById(req.params.id).select('participants title');
+        const previousIds = (existing?.participants || []).map(p => p.toString());
+
         const event = await CalendarEvent.findByIdAndUpdate(
             req.params.id, { $set: updates }, { new: true }
         ).populate('created_by', 'name').populate('participants', '_id');
@@ -302,6 +344,25 @@ router.put('/:id', authenticateToken, isAdmin, [
         const plain = event.toJSON();
         plain.created_by_name = event.created_by?.name;
         res.json({ success: true, message: 'Event updated', event: formatEvent(plain) });
+
+        // ── Notify only newly-added participants (non-blocking, after response) ──
+        if (newParticipantIds && newParticipantIds.length > 0) {
+            const io = req.app.get('io');
+            const creatorId = req.user.id.toString();
+            const eventTitle = updates.title || existing?.title || 'an event';
+            for (const pid of newParticipantIds) {
+                const pidStr = pid.toString();
+                if (pidStr === creatorId) continue;           // skip self
+                if (previousIds.includes(pidStr)) continue;  // already tagged
+                notify(io, {
+                    userId: pidStr,
+                    type: 'calendar',
+                    title: '📅 You were tagged in an event',
+                    message: `You have been added to event: ${eventTitle}`,
+                    relatedId: req.params.id
+                });
+            }
+        }
     } catch (error) {
         console.error('PUT /api/events/:id error:', error);
         res.status(500).json({ success: false, message: 'Failed to update event' });

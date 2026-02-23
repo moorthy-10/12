@@ -74,11 +74,14 @@ const CompanyCalendar = () => {
     // View event detail (employee or admin)
     const [viewEvent, setViewEvent] = useState(null);
 
-    // ── Load events for month ────────────────────────────────────────────────
-    const loadEvents = useCallback(async (month) => {
+    // ── My Events Only filter ──────────────────────────────────────────────
+    const [myEventsOnly, setMyEventsOnly] = useState(false);
+
+    // ── Load events for month ────────────────────────────────────────
+    const loadEvents = useCallback(async (month, myOnly = false) => {
         setLoading(true);
         try {
-            const res = await eventAPI.getByMonth(month);
+            const res = await eventAPI.getByMonth(month, myOnly);
             setEvents(res.data.events || []);
         } catch (err) {
             console.error('Failed to load events:', err);
@@ -87,7 +90,8 @@ const CompanyCalendar = () => {
         }
     }, []);
 
-    useEffect(() => { loadEvents(currentMonth); }, [currentMonth, loadEvents]);
+    // Re-fetch when month OR filter changes
+    useEffect(() => { loadEvents(currentMonth, myEventsOnly); }, [currentMonth, myEventsOnly, loadEvents]);
 
     // ── Load employees for participant picker ────────────────────────────────
     const loadEmployees = useCallback(async () => {
@@ -201,6 +205,7 @@ const CompanyCalendar = () => {
         };
     };
 
+    // Also pass myEventsOnly to post-save reload
     const handleSave = async (e) => {
         e.preventDefault();
         setFormError('');
@@ -220,7 +225,7 @@ const CompanyCalendar = () => {
                 await eventAPI.create(buildPayload());
             }
             setModalOpen(false);
-            loadEvents(currentMonth);
+            loadEvents(currentMonth, myEventsOnly);
         } catch (err) {
             setFormError(err.response?.data?.message || 'Failed to save event');
         } finally {
@@ -234,7 +239,7 @@ const CompanyCalendar = () => {
         try {
             await eventAPI.delete(editingEvent.id);
             setModalOpen(false);
-            loadEvents(currentMonth);
+            loadEvents(currentMonth, myEventsOnly);
         } catch (err) {
             setFormError(err.response?.data?.message || 'Failed to delete event');
         } finally {
@@ -255,6 +260,21 @@ const CompanyCalendar = () => {
                             {t.label}
                         </span>
                     ))}
+
+                    {/* ── My Events Only toggle ── */}
+                    <label className="cc-my-events-toggle" htmlFor="cc-my-events-switch" title="Show only events you created or are tagged in">
+                        <input
+                            id="cc-my-events-switch"
+                            type="checkbox"
+                            checked={myEventsOnly}
+                            onChange={e => setMyEventsOnly(e.target.checked)}
+                        />
+                        <span className="cc-toggle-track">
+                            <span className="cc-toggle-thumb" />
+                        </span>
+                        <span className="cc-toggle-label">My Events</span>
+                    </label>
+
                     {loading && <span className="cc-loading-badge">Loading…</span>}
                     {isAdmin && (
                         <button className="cc-add-btn" onClick={() => {
