@@ -7,22 +7,22 @@ const Sidebar = ({ isOpen, onClose }) => {
     const { user, isAdmin } = useAuth();
 
     const adminMenuItems = [
-        { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-        { path: '/employees', label: 'Employees', icon: '👥' },
-        { path: '/attendance', label: 'Attendance', icon: '📅' },
-        { path: '/leaves', label: 'Leave Requests', icon: '🏖️' },
-        { path: '/tasks', label: 'Tasks', icon: '✅' },
-        { path: '/groups', label: 'Group Chat', icon: '💬' },
-        { path: '/calendar', label: 'Calendar', icon: '📆' },
+        { path: '/dashboard', label: 'Dashboard' },
+        { path: '/employees', label: 'Employees' },
+        { path: '/attendance', label: 'Attendance' },
+        { path: '/leaves', label: 'Leave Requests' },
+        { path: '/tasks', label: 'Tasks' },
+        { path: '/groups', label: 'Group Chat' },
+        { path: '/calendar', label: 'Calendar' },
     ];
 
     const employeeMenuItems = [
-        { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-        { path: '/my-attendance', label: 'My Attendance', icon: '📅' },
-        { path: '/my-leaves', label: 'My Leaves', icon: '🏖️' },
-        { path: '/my-tasks', label: 'My Tasks', icon: '✅' },
-        { path: '/groups', label: 'Group Chat', icon: '💬' },
-        { path: '/calendar', label: 'Calendar', icon: '📆' },
+        { path: '/dashboard', label: 'Dashboard' },
+        { path: '/my-attendance', label: 'My Attendance' },
+        { path: '/my-leaves', label: 'My Leaves' },
+        { path: '/my-tasks', label: 'My Tasks' },
+        { path: '/groups', label: 'Group Chat' },
+        { path: '/calendar', label: 'Calendar' },
     ];
 
     const menuItems = isAdmin ? adminMenuItems : employeeMenuItems;
@@ -65,7 +65,6 @@ const Sidebar = ({ isOpen, onClose }) => {
                             onClick={onClose}
                             className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                         >
-                            <span className="sidebar-icon" aria-hidden="true">{item.icon}</span>
                             <span className="sidebar-label">{item.label}</span>
                         </NavLink>
                     ))}
