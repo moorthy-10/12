@@ -48,6 +48,7 @@ const groupRoutes = require('./routes/groups');
 const privateMessageRoutes = require('./routes/privateMessages');
 const eventRoutes = require('./routes/events');
 const notificationRoutes = require('./routes/notifications');
+const performanceRoutes = require('./routes/performance');
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -62,6 +63,7 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/private-messages', privateMessageRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/performance', performanceRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

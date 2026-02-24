@@ -137,4 +137,10 @@ export const eventAPI = {
     delete: (id) => api.delete(`/events/${id}`)
 };
 
+// Performance APIs
+export const performanceAPI = {
+    get: () => api.get('/performance')
+};
+
 export default api;
+

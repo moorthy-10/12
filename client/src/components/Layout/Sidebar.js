@@ -12,6 +12,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         { path: '/attendance', label: 'Attendance' },
         { path: '/leaves', label: 'Leave Requests' },
         { path: '/tasks', label: 'Tasks' },
+        { path: '/performance', label: 'Performance' },
         { path: '/groups', label: 'Group Chat' },
         { path: '/calendar', label: 'Calendar' },
     ];
@@ -21,6 +22,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         { path: '/my-attendance', label: 'My Attendance' },
         { path: '/my-leaves', label: 'My Leaves' },
         { path: '/my-tasks', label: 'My Tasks' },
+        { path: '/my-performance', label: 'My Performance' },
         { path: '/groups', label: 'Group Chat' },
         { path: '/calendar', label: 'Calendar' },
     ];

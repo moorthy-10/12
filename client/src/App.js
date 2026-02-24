@@ -13,6 +13,8 @@ import MyTasks from './pages/MyTasks/MyTasks';
 import Groups from './pages/Groups/Groups';
 import GroupChat from './pages/GroupChat/GroupChat';
 import CompanyCalendar from './pages/CompanyCalendar/CompanyCalendar';
+import Performance from './pages/Performance/Performance';
+import MyPerformance from './pages/MyPerformance/MyPerformance';
 import { ChatProvider } from './chat/ChatProvider';
 import { NotificationProvider } from './context/NotificationProvider';
 import FloatingChatButton from './chat/FloatingChatButton';
@@ -117,6 +119,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/performance"
+        element={
+          <ProtectedRoute adminOnly>
+            <Performance />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Protected Routes - Employee Only */}
       <Route
@@ -140,6 +150,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MyTasks />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-performance"
+        element={
+          <ProtectedRoute>
+            <MyPerformance />
           </ProtectedRoute>
         }
       />
