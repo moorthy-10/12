@@ -61,7 +61,12 @@ export const attendanceAPI = {
     delete: (id) => api.delete(`/attendance/${id}`),
     clockIn: () => api.post('/attendance/clock-in'),
     clockOut: () => api.post('/attendance/clock-out'),
-    getToday: () => api.get('/attendance/today')
+    getToday: () => api.get('/attendance/today'),
+    exportMonthly: (month, year) =>
+        api.get('/attendance/export/monthly', {
+            params: { month, year },
+            responseType: 'blob'
+        })
 };
 
 // Leave APIs

@@ -163,7 +163,9 @@ const MyAttendance = () => {
                                         <div className="time-item">
                                             <span className="time-label">Total Hours:</span>
                                             <span className="time-value">
-                                                {calculateHours(todayRecord.check_in_time, todayRecord.check_out_time)}
+                                                {todayRecord.totalHours != null
+                                                    ? `${todayRecord.totalHours} hrs`
+                                                    : calculateHours(todayRecord.check_in_time, todayRecord.check_out_time)}
                                             </span>
                                         </div>
                                     </>
@@ -259,9 +261,11 @@ const MyAttendance = () => {
                                             <td>{record.check_in_time || '-'}</td>
                                             <td>{record.check_out_time || '-'}</td>
                                             <td>
-                                                {record.check_in_time && record.check_out_time
-                                                    ? calculateHours(record.check_in_time, record.check_out_time)
-                                                    : '-'}
+                                                {record.totalHours != null
+                                                    ? `${record.totalHours} hrs`
+                                                    : (record.check_in_time && record.check_out_time
+                                                        ? calculateHours(record.check_in_time, record.check_out_time)
+                                                        : '-')}
                                             </td>
                                         </tr>
                                     ))

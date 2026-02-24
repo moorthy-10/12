@@ -8,6 +8,10 @@ const attendanceSchema = new mongoose.Schema({
     status: { type: String, enum: ['present', 'absent', 'half-day', 'leave'], required: true },
     check_in_time: { type: String, default: null },
     check_out_time: { type: String, default: null },
+    // Full UTC timestamps for accurate totalHours calculation
+    clockIn: { type: Date, default: null },
+    clockOut: { type: Date, default: null },
+    totalHours: { type: Number, default: null },
     notes: { type: String, default: '' },
 }, { timestamps: true });
 

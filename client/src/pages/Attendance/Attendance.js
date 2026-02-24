@@ -10,9 +10,16 @@ const Attendance = () => {
     const [filters, setFilters] = useState({ start_date: '', end_date: '', status: '' });
     const [showModal, setShowModal] = useState(false);
 
+    // Export state
+    const now = new Date();
+    const [exportMonth, setExportMonth] = useState(now.getMonth() + 1);
+    const [exportYear, setExportYear] = useState(now.getFullYear());
+    const [exporting, setExporting] = useState(false);
+    const [exportError, setExportError] = useState('');
+
     useEffect(() => {
         fetchRecords();
-    }, [filters]);
+    }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const fetchRecords = async () => {
         try {
@@ -29,6 +36,32 @@ const Attendance = () => {
         setFilters({ ...filters, [key]: value });
     };
 
+    // ── Monthly Export Handler ─────────────────────────────────────────────────
+    const handleExport = async () => {
+        setExporting(true);
+        setExportError('');
+        try {
+            const response = await attendanceAPI.exportMonthly(exportMonth, exportYear);
+            const blob = new Blob([response.data], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const monthStr = String(exportMonth).padStart(2, '0');
+            link.href = url;
+            link.download = `attendance_${exportYear}_${monthStr}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Export failed:', err);
+            setExportError('Export failed. You may not have admin access.');
+        } finally {
+            setExporting(false);
+        }
+    };
+
     if (loading) {
         return (
             <MainLayout title="Attendance Management">
@@ -39,9 +72,20 @@ const Attendance = () => {
         );
     }
 
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    // Build year list: current year ± 2
+    const currentYear = new Date().getFullYear();
+    const yearOptions = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1];
+
     return (
         <MainLayout title="Attendance Management">
             <div className="employees-page">
+
+                {/* ── Filters + Actions Row ───────────────────────────────── */}
                 <div className="page-header">
                     <div className="page-filters">
                         <input
@@ -73,6 +117,70 @@ const Attendance = () => {
                     </button>
                 </div>
 
+                {/* ── Monthly Export Panel ────────────────────────────────── */}
+                <div
+                    className="card"
+                    style={{
+                        marginBottom: '1.5rem',
+                        padding: '1rem 1.5rem',
+                        background: 'linear-gradient(135deg, #1a2f50 0%, #0f1e35 100%)',
+                        borderRadius: 'var(--radius)',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.18)'
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                        <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.95rem', whiteSpace: 'nowrap' }}>
+                            📊 Download Monthly Attendance
+                        </span>
+
+                        {/* Month selector */}
+                        <select
+                            id="export-month"
+                            className="form-select"
+                            value={exportMonth}
+                            onChange={(e) => setExportMonth(Number(e.target.value))}
+                            style={{ minWidth: '130px' }}
+                        >
+                            {monthNames.map((m, i) => (
+                                <option key={i + 1} value={i + 1}>{m}</option>
+                            ))}
+                        </select>
+
+                        {/* Year selector */}
+                        <select
+                            id="export-year"
+                            className="form-select"
+                            value={exportYear}
+                            onChange={(e) => setExportYear(Number(e.target.value))}
+                            style={{ minWidth: '90px' }}
+                        >
+                            {yearOptions.map(y => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
+
+                        {/* Export button */}
+                        <button
+                            id="btn-export-monthly"
+                            className="btn btn-primary"
+                            onClick={handleExport}
+                            disabled={exporting}
+                            style={{
+                                background: exporting ? '#4a5568' : '#3b82f6',
+                                border: 'none',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {exporting ? '⏳ Generating...' : '⬇️ Export Excel'}
+                        </button>
+
+                        {exportError && (
+                            <span style={{ color: '#fc8181', fontSize: '0.875rem' }}>{exportError}</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── Attendance Records Table ────────────────────────────── */}
                 <div className="card">
                     <div className="table-container">
                         <table className="table">
@@ -82,15 +190,16 @@ const Attendance = () => {
                                     <th>Employee</th>
                                     <th>Department</th>
                                     <th>Status</th>
-                                    <th>Check In</th>
-                                    <th>Check Out</th>
+                                    <th>Clock In</th>
+                                    <th>Clock Out</th>
+                                    <th>Total Hours</th>
                                     <th>Notes</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {records.length === 0 ? (
                                     <tr>
-                                        <td colSpan="7" className="text-center" style={{ padding: '2rem', color: 'var(--gray-500)' }}>
+                                        <td colSpan="8" className="text-center" style={{ padding: '2rem', color: 'var(--gray-500)' }}>
                                             No attendance records found
                                         </td>
                                     </tr>
@@ -107,6 +216,13 @@ const Attendance = () => {
                                             </td>
                                             <td>{record.check_in_time || '-'}</td>
                                             <td>{record.check_out_time || '-'}</td>
+                                            <td>
+                                                {record.totalHours != null
+                                                    ? `${record.totalHours} hrs`
+                                                    : (record.check_in_time && record.check_out_time
+                                                        ? calcHours(record.check_in_time, record.check_out_time)
+                                                        : '-')}
+                                            </td>
                                             <td>{record.notes || '-'}</td>
                                         </tr>
                                     ))
@@ -130,6 +246,7 @@ const Attendance = () => {
     );
 };
 
+// ── Mark-Attendance Modal ──────────────────────────────────────────────────────
 const AttendanceModal = ({ onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
         date: new Date().toISOString().split('T')[0],
@@ -238,6 +355,16 @@ const AttendanceModal = ({ onClose, onSuccess }) => {
             </form>
         </Modal>
     );
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const calcHours = (checkIn, checkOut) => {
+    if (!checkIn || !checkOut) return '-';
+    const [ih, im] = checkIn.split(':').map(Number);
+    const [oh, om] = checkOut.split(':').map(Number);
+    const diff = (oh * 60 + om) - (ih * 60 + im);
+    if (diff <= 0) return '-';
+    return `${(diff / 60).toFixed(2)} hrs`;
 };
 
 const getStatusColor = (status) => {

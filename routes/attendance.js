@@ -3,6 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
+const ExcelJS = require('exceljs');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const CalendarEvent = require('../models/CalendarEvent');
@@ -81,6 +82,119 @@ router.get('/today', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('GET /attendance/today error:', error);
         res.status(500).json({ success: false, message: 'Database error' });
+    }
+});
+
+// ── GET /api/attendance/export/monthly ────────────────────────────────────────
+// Admin only – returns an .xlsx file
+router.get('/export/monthly', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const month = parseInt(req.query.month, 10) || new Date().getMonth() + 1;
+        const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+
+        // Build YYYY-MM-DD range strings for the selected month
+        const paddedMonth = String(month).padStart(2, '0');
+        const startDate = `${year}-${paddedMonth}-01`;
+        const lastDay = new Date(year, month, 0).getDate(); // day 0 of next month = last day of this month
+        const endDate = `${year}-${paddedMonth}-${String(lastDay).padStart(2, '0')}`;
+
+        const records = await Attendance.find({
+            date: { $gte: startDate, $lte: endDate }
+        })
+            .populate('user', 'name email department position')
+            .sort({ date: 1 });
+
+        // Build Excel workbook
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'GenLab HR System';
+        workbook.created = new Date();
+
+        const sheet = workbook.addWorksheet(`Attendance ${paddedMonth}-${year}`);
+
+        // Header row
+        sheet.columns = [
+            { header: 'Employee Name', key: 'name', width: 24 },
+            { header: 'Email', key: 'email', width: 28 },
+            { header: 'Department', key: 'department', width: 18 },
+            { header: 'Position', key: 'position', width: 18 },
+            { header: 'Date', key: 'date', width: 14 },
+            { header: 'Clock In', key: 'clockIn', width: 12 },
+            { header: 'Clock Out', key: 'clockOut', width: 12 },
+            { header: 'Total Hours', key: 'totalHours', width: 14 },
+            { header: 'Status', key: 'status', width: 12 },
+        ];
+
+        // Style header row
+        const headerRow = sheet.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.fill = {
+            type: 'pattern', pattern: 'solid',
+            fgColor: { argb: 'FF1F3A5F' }
+        };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+        headerRow.height = 20;
+
+        if (records.length === 0) {
+            // Return empty sheet with headers only
+        } else {
+            records.forEach(r => {
+                const user = r.user || {};
+
+                // Prefer stored totalHours; fall back to string-based computation
+                let totalHrsDisplay = r.totalHours != null
+                    ? `${r.totalHours} hrs`
+                    : (r.check_in_time && r.check_out_time
+                        ? (() => {
+                            const [ih, im] = r.check_in_time.split(':').map(Number);
+                            const [oh, om] = r.check_out_time.split(':').map(Number);
+                            const diff = (oh * 60 + om) - (ih * 60 + im);
+                            if (diff < 0) return '-';
+                            return `${(diff / 60).toFixed(2)} hrs`;
+                        })()
+                        : '-');
+
+                sheet.addRow({
+                    name: user.name || '-',
+                    email: user.email || '-',
+                    department: user.department || '-',
+                    position: user.position || '-',
+                    date: r.date,
+                    clockIn: r.check_in_time || '-',
+                    clockOut: r.check_out_time || '-',
+                    totalHours: totalHrsDisplay,
+                    status: r.status,
+                });
+            });
+
+            // Zebra striping on data rows
+            sheet.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) return;
+                const fill = rowNumber % 2 === 0
+                    ? 'FFF0F4FA'
+                    : 'FFFFFFFF';
+                row.eachCell(cell => {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                });
+            });
+        }
+
+        // Auto-filter
+        sheet.autoFilter = {
+            from: { row: 1, column: 1 },
+            to: { row: sheet.rowCount, column: sheet.columnCount }
+        };
+
+        // Stream the file back
+        const filename = `attendance_${year}_${paddedMonth}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        console.error('GET /attendance/export/monthly error:', error);
+        res.status(500).json({ success: false, message: 'Failed to generate export' });
     }
 });
 
@@ -202,7 +316,7 @@ router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
 // ── POST /api/attendance/clock-in ──────────────────────────────────────────────
 router.post('/clock-in', authenticateToken, async (req, res) => {
     const user_id = req.user.id;
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD in UTC
 
     try {
         // Check if today is a holiday
@@ -225,7 +339,7 @@ router.post('/clock-in', authenticateToken, async (req, res) => {
                 });
             }
 
-            // Auto-mark as holiday
+            // Auto-mark as holiday leave
             const created = await Attendance.create({
                 user: user_id, date: today, status: 'leave',
                 notes: `Holiday: ${holiday.title}`
@@ -244,16 +358,27 @@ router.post('/clock-in', authenticateToken, async (req, res) => {
             });
         }
 
-        // Not a holiday — normal clock-in
+        // ── Guard: Prevent double clock-in ────────────────────────────────────
         const existing = await Attendance.findOne({ user: user_id, date: today });
-        if (existing) {
-            return res.status(400).json({ success: false, message: 'You have already clocked in today', record: existing.toJSON() });
+        if (existing && existing.check_in_time) {
+            return res.status(400).json({
+                success: false,
+                message: 'You have already clocked in today',
+                record: existing.toJSON()
+            });
         }
 
-        const now = new Date();
-        const check_in_time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        // ── Create clock-in record ─────────────────────────────────────────────
+        const now = new Date(); // UTC
+        const check_in_time = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
 
-        const created = await Attendance.create({ user: user_id, date: today, status: 'present', check_in_time });
+        const created = await Attendance.create({
+            user: user_id,
+            date: today,
+            status: 'present',
+            check_in_time,
+            clockIn: now // store full UTC Date for accurate totalHours calculation
+        });
         const rec = await Attendance.findById(created._id).populate('user', 'name email department');
         const record = rec.toJSON();
         record.user_id = rec.user._id.toString();
@@ -261,7 +386,7 @@ router.post('/clock-in', authenticateToken, async (req, res) => {
         record.email = rec.user.email;
         record.department = rec.user.department;
 
-        res.status(201).json({ success: true, message: `Clocked in successfully at ${check_in_time}`, record });
+        res.status(201).json({ success: true, message: `Clocked in successfully at ${check_in_time} UTC`, record });
     } catch (error) {
         console.error('Clock-in error:', error);
         res.status(500).json({ success: false, message: 'Failed to clock in' });
@@ -271,26 +396,52 @@ router.post('/clock-in', authenticateToken, async (req, res) => {
 // ── POST /api/attendance/clock-out ─────────────────────────────────────────────
 router.post('/clock-out', authenticateToken, async (req, res) => {
     const user_id = req.user.id;
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD in UTC
 
     try {
         const existing = await Attendance.findOne({ user: user_id, date: today });
 
+        // ── Guard: No record at all ───────────────────────────────────────────
         if (!existing) {
             return res.status(400).json({ success: false, message: 'You must clock in before clocking out' });
         }
+
+        // ── Guard: No clock-in time ───────────────────────────────────────────
         if (!existing.check_in_time) {
-            return res.status(400).json({ success: false, message: 'No clock-in time found for today' });
-        }
-        if (existing.check_out_time) {
-            return res.status(400).json({ success: false, message: 'You have already clocked out today', record: existing.toJSON() });
+            return res.status(400).json({ success: false, message: 'No clock-in time found for today. Please clock in first.' });
         }
 
-        const now = new Date();
-        const check_out_time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        // ── Guard: Already clocked out ────────────────────────────────────────
+        if (existing.check_out_time) {
+            return res.status(400).json({
+                success: false,
+                message: 'You have already clocked out today',
+                record: existing.toJSON()
+            });
+        }
+
+        // ── Calculate totalHours ──────────────────────────────────────────────
+        const now = new Date(); // UTC
+        const check_out_time = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
+
+        let totalHours = null;
+        if (existing.clockIn) {
+            // Precise: use stored UTC Date objects
+            totalHours = parseFloat(((now - existing.clockIn) / (1000 * 60 * 60)).toFixed(2));
+        } else {
+            // Fallback: derive from HH:MM strings
+            const [ih, im] = existing.check_in_time.split(':').map(Number);
+            const [oh, om] = check_out_time.split(':').map(Number);
+            const diffMins = (oh * 60 + om) - (ih * 60 + im);
+            if (diffMins > 0) {
+                totalHours = parseFloat((diffMins / 60).toFixed(2));
+            }
+        }
 
         const rec = await Attendance.findByIdAndUpdate(
-            existing._id, { $set: { check_out_time } }, { new: true }
+            existing._id,
+            { $set: { check_out_time, clockOut: now, totalHours } },
+            { new: true }
         ).populate('user', 'name email department');
 
         const record = rec.toJSON();
@@ -299,7 +450,11 @@ router.post('/clock-out', authenticateToken, async (req, res) => {
         record.email = rec.user.email;
         record.department = rec.user.department;
 
-        res.json({ success: true, message: `Clocked out successfully at ${check_out_time}`, record });
+        res.json({
+            success: true,
+            message: `Clocked out successfully at ${check_out_time} UTC. Total hours: ${totalHours ?? '-'}`,
+            record
+        });
     } catch (error) {
         console.error('Clock-out error:', error);
         res.status(500).json({ success: false, message: 'Failed to clock out' });
