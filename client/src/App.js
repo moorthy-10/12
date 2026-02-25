@@ -1,3 +1,5 @@
+import React, { useEffect } from 'react';
+import { PushNotifications } from '@capacitor/push-notifications';
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -213,6 +215,55 @@ function AppRoutes() {
     </Routes>
   );
 }
+const PushManager = () => {
+  const { isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Request permission
+    PushNotifications.requestPermissions().then(result => {
+      if (result.receive === 'granted') {
+        PushNotifications.register();
+      } else {
+        console.log('Push permission not granted');
+      }
+    });
+
+    // When token generated
+    PushNotifications.addListener('registration', async (token) => {
+      console.log('FCM TOKEN:', token.value);
+
+      const jwt = localStorage.getItem('token');
+      if (!jwt) return;
+
+      try {
+        await fetch('https://one2-mti6.onrender.com/api/users/fcm-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${jwt}`
+          },
+          body: JSON.stringify({
+            fcmToken: token.value
+          })
+        });
+
+        console.log('FCM token saved to backend');
+      } catch (err) {
+        console.error('Failed to save FCM token:', err);
+      }
+    });
+
+    // Foreground push
+    PushNotifications.addListener('pushNotificationReceived', notification => {
+      console.log('Push received:', notification);
+    });
+
+  }, [isAuthenticated]);
+
+  return null;
+};
 
 function App() {
   return (
@@ -220,6 +271,7 @@ function App() {
       <NotificationProvider>
         <ChatProvider>
           <BrowserRouter>
+            <PushManager />   {/* 🔥 ADD THIS LINE */}
             <AppRoutes />
             <FloatingChatButton />
             <FloatingChatWindow />
