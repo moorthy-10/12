@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
-import React from 'react';
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login/Login';
@@ -219,18 +220,23 @@ const PushManager = () => {
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
+
+    // 🔴 Do NOT run push on web (Vercel fix)
+    if (Capacitor.getPlatform() === 'web') {
+      console.log('Push disabled on web');
+      return;
+    }
+
     if (!isAuthenticated) return;
 
     // Request permission
     PushNotifications.requestPermissions().then(result => {
       if (result.receive === 'granted') {
         PushNotifications.register();
-      } else {
-        console.log('Push permission not granted');
       }
     });
 
-    // When token generated
+    // Token generated
     PushNotifications.addListener('registration', async (token) => {
       console.log('FCM TOKEN:', token.value);
 
@@ -255,8 +261,8 @@ const PushManager = () => {
       }
     });
 
-    // Foreground push
-    PushNotifications.addListener('pushNotificationReceived', notification => {
+    // Foreground notification
+    PushNotifications.addListener('pushNotificationReceived', (notification) => {
       console.log('Push received:', notification);
     });
 
