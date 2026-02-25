@@ -6,6 +6,7 @@ const { Server } = require('socket.io');
 require('dotenv').config();
 
 const connectDB = require('./config/mongo');
+require('./config/firebase'); // Initialize Firebase Admin
 
 const app = express();
 

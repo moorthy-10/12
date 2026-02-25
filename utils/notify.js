@@ -1,6 +1,7 @@
 'use strict';
 
 const Notification = require('../models/Notification');
+const { sendPushNotification } = require('../services/pushService');
 
 /**
  * Create a notification record and emit it in real-time via Socket.IO.
@@ -36,6 +37,17 @@ async function notify(io, { userId, type, title, message, relatedId }) {
                 createdAt: doc.createdAt,
             };
             io.to(`user:${userId}`).emit('new-notification', payload);
+        }
+
+        // ── PUSH NOTIFICATION (Extension) ──
+        // Only trigger pushes for the approved production list
+        const pushSupportedTypes = ['task', 'leave', 'calendar', 'standup', 'chat'];
+        if (pushSupportedTypes.includes(type)) {
+            // Asynchronous, non-blocking
+            sendPushNotification(userId, title, message, {
+                type: type,
+                relatedId: relatedId || ''
+            });
         }
     } catch (err) {
         // Non-fatal — never crash the calling route

@@ -205,4 +205,24 @@ router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
     }
 });
 
+// ── POST /api/users/fcm-token ────────────────────────────────────────────────
+router.post('/fcm-token', authenticateToken, [
+    body('fcmToken').isString().notEmpty().withMessage('FCM token must be a string')
+], async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+    }
+
+    try {
+        await User.findByIdAndUpdate(req.user.id, {
+            fcmToken: req.body.fcmToken
+        });
+        res.json({ success: true, message: 'FCM token updated successfully' });
+    } catch (error) {
+        console.error('POST /fcm-token error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update FCM token' });
+    }
+});
+
 module.exports = router;

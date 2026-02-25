@@ -6,6 +6,7 @@ const { body, validationResult } = require('express-validator');
 const mongoose = require('mongoose');
 const CalendarEvent = require('../models/CalendarEvent');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const notify = require('../utils/notify');
 
 
 // ── Shape helper ──────────────────────────────────────────────────────────────
@@ -82,12 +83,13 @@ router.post('/', authenticateToken, isAdmin, [
     body('event_type').isIn(['holiday', 'company-event', 'meeting', 'other']),
     body('start_date').isDate(),
     body('end_date').isDate(),
-    body('is_holiday').optional().isBoolean()
+    body('is_holiday').optional().isBoolean(),
+    body('participants').optional().isArray()
 ], async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
-    const { title, description, event_type, start_date, end_date, is_holiday } = req.body;
+    const { title, description, event_type, start_date, end_date, is_holiday, participants } = req.body;
 
     if (new Date(end_date) < new Date(start_date)) {
         return res.status(400).json({ success: false, message: 'End date must be on or after start date' });
@@ -99,9 +101,24 @@ router.post('/', authenticateToken, isAdmin, [
         const created = await CalendarEvent.create({
             title, description, event_type, start_date, end_date,
             is_holiday: holidayFlag,
-            created_by: req.user.id
+            created_by: req.user.id,
+            participants: participants || []
         });
         const event = await CalendarEvent.findById(created._id).populate('created_by', 'name');
+
+        // Trigger notification for each participant
+        if (participants && participants.length > 0) {
+            const io = req.app.get('io');
+            participants.forEach(userId => {
+                notify(io, {
+                    userId: userId.toString(),
+                    type: 'calendar',
+                    title: 'Calendar Tagged',
+                    message: 'You have been tagged in a calendar event.',
+                    relatedId: event._id.toString()
+                });
+            });
+        }
         res.status(201).json({ success: true, message: 'Event created successfully', event: shapeEvent(event) });
     } catch (error) {
         console.error('POST /calendar error:', error);
@@ -116,7 +133,8 @@ router.put('/:id', authenticateToken, isAdmin, [
     body('event_type').optional().isIn(['holiday', 'company-event', 'meeting', 'other']),
     body('start_date').optional().isDate(),
     body('end_date').optional().isDate(),
-    body('is_holiday').optional().isBoolean()
+    body('is_holiday').optional().isBoolean(),
+    body('participants').optional().isArray()
 ], async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
         return res.status(400).json({
@@ -127,7 +145,7 @@ router.put('/:id', authenticateToken, isAdmin, [
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
-    const { title, description, event_type, start_date, end_date, is_holiday } = req.body;
+    const { title, description, event_type, start_date, end_date, is_holiday, participants } = req.body;
     const updates = {};
 
     if (title !== undefined) updates.title = title;
@@ -139,6 +157,7 @@ router.put('/:id', authenticateToken, isAdmin, [
     if (start_date !== undefined) updates.start_date = start_date;
     if (end_date !== undefined) updates.end_date = end_date;
     if (is_holiday !== undefined) updates.is_holiday = !!is_holiday;
+    if (participants !== undefined) updates.participants = participants;
 
     if (Object.keys(updates).length === 0) {
         return res.status(400).json({ success: false, message: 'No fields to update' });
@@ -150,6 +169,21 @@ router.put('/:id', authenticateToken, isAdmin, [
         ).populate('created_by', 'name');
 
         if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+
+        // Trigger notification for each participant
+        if (participants && participants.length > 0) {
+            const io = req.app.get('io');
+            participants.forEach(userId => {
+                notify(io, {
+                    userId: userId.toString(),
+                    type: 'calendar',
+                    title: 'Calendar Tagged',
+                    message: 'You have been tagged in a calendar event.',
+                    relatedId: event._id.toString()
+                });
+            });
+        }
+
         res.json({ success: true, message: 'Event updated successfully', event: shapeEvent(event) });
     } catch (error) {
         console.error('PUT /calendar/:id error:', error);

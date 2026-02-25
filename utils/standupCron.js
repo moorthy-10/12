@@ -11,6 +11,7 @@ const cron = require('node-cron');
 const Standup = require('../models/Standup');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { sendPushNotification } = require('../services/pushService');
 
 // Memory guard: set of date strings already notified this process lifecycle
 const notifiedDates = new Set();
@@ -90,6 +91,17 @@ async function sendRemindersToMissing() {
         }));
 
         await Notification.insertMany(notifications, { ordered: false });
+
+        // Trigger push notification for each missing employee
+        missingEmployees.forEach(emp => {
+            sendPushNotification(
+                emp._id.toString(),
+                'Standup Reminder',
+                'You have not submitted your daily standup yet.',
+                { type: 'standup' }
+            );
+        });
+
         console.log(`[StandupCron] Sent reminders to ${missingEmployees.length} employee(s).`);
         return { success: true, count: missingEmployees.length };
     } catch (err) {
