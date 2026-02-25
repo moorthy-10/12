@@ -12,6 +12,7 @@ const attendanceSchema = new mongoose.Schema({
     clockIn: { type: Date, default: null },
     clockOut: { type: Date, default: null },
     totalHours: { type: Number, default: null },
+    autoClosed: { type: Boolean, default: false },
     notes: { type: String, default: '' },
 }, { timestamps: true });
 

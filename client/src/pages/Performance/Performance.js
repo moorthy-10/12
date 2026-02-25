@@ -61,7 +61,7 @@ const Performance = () => {
 
     // Sort + filter
     const sorted = [...data]
-        .filter(e => e.name.toLowerCase().includes(search.toLowerCase()))
+        .filter(e => (e.name || "").toLowerCase().includes(search.toLowerCase()))
         .sort((a, b) => {
             const multi = sortDir === 'desc' ? -1 : 1;
             if (typeof a[sortKey] === 'string') return multi * a[sortKey].localeCompare(b[sortKey]);
@@ -113,36 +113,38 @@ const Performance = () => {
                 {error && <div className="perf-error">{error}</div>}
 
                 {/* ── Summary cards ── */}
-                <div className="perf-summary-grid">
-                    <div className="perf-summary-card perf-summary-blue">
-                        <FaUserTie className="perf-summary-icon" />
-                        <div>
-                            <div className="perf-summary-label">Total Employees</div>
-                            <div className="perf-summary-value">{data.length}</div>
+                {data.length > 0 && (
+                    <div className="perf-summary-grid">
+                        <div className="perf-summary-card perf-summary-blue">
+                            <FaUserTie className="perf-summary-icon" />
+                            <div>
+                                <div className="perf-summary-label">Total Employees</div>
+                                <div className="perf-summary-value">{data.length}</div>
+                            </div>
+                        </div>
+                        <div className="perf-summary-card perf-summary-purple">
+                            <FaTrophy className="perf-summary-icon" />
+                            <div>
+                                <div className="perf-summary-label">Avg Score</div>
+                                <div className="perf-summary-value">{avg}</div>
+                            </div>
+                        </div>
+                        <div className="perf-summary-card perf-summary-green">
+                            <FaCheckCircle className="perf-summary-icon" />
+                            <div>
+                                <div className="perf-summary-label">Top Performer</div>
+                                <div className="perf-summary-value perf-summary-name">{topPerformer?.name || '—'}</div>
+                            </div>
+                        </div>
+                        <div className="perf-summary-card perf-summary-orange">
+                            <FaExclamationTriangle className="perf-summary-icon" />
+                            <div>
+                                <div className="perf-summary-label">Late Tasks (Total)</div>
+                                <div className="perf-summary-value">{data.reduce((s, e) => s + e.lateTasks, 0)}</div>
+                            </div>
                         </div>
                     </div>
-                    <div className="perf-summary-card perf-summary-purple">
-                        <FaTrophy className="perf-summary-icon" />
-                        <div>
-                            <div className="perf-summary-label">Avg Score</div>
-                            <div className="perf-summary-value">{avg}</div>
-                        </div>
-                    </div>
-                    <div className="perf-summary-card perf-summary-green">
-                        <FaCheckCircle className="perf-summary-icon" />
-                        <div>
-                            <div className="perf-summary-label">Top Performer</div>
-                            <div className="perf-summary-value perf-summary-name">{topPerformer?.name || '—'}</div>
-                        </div>
-                    </div>
-                    <div className="perf-summary-card perf-summary-orange">
-                        <FaExclamationTriangle className="perf-summary-icon" />
-                        <div>
-                            <div className="perf-summary-label">Late Tasks (Total)</div>
-                            <div className="perf-summary-value">{data.reduce((s, e) => s + e.lateTasks, 0)}</div>
-                        </div>
-                    </div>
-                </div>
+                )}
 
                 {/* ── Filters ── */}
                 <div className="perf-filters">
@@ -225,9 +227,10 @@ const SortTh = ({ label, k, sortKey, sortDir, onClick }) => (
     <th onClick={() => onClick(k)} className="perf-sort-th" title={`Sort by ${label}`}>
         {label}
         <span className="sort-arrow">
-            {sortKey === k ? (sortDir === 'desc' ? ' ▼' : ' ▲') : ' ⇅'}
+            {sortKey === k ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ' ⇅'}
         </span>
     </th>
 );
+
 
 export default Performance;

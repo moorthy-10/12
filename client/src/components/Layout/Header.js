@@ -1,12 +1,62 @@
 import './Header.css';
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
+import { searchAPI } from '../../api/api';
 
 const Header = ({ title, onMenuToggle }) => {
-    const { logout, isAdmin } = useAuth();
+    const { logout, isAdmin, user } = useAuth();
     const navigate = useNavigate();
+
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const dropdownRef = useRef(null);
+    const searchRef = useRef(null);
+
+    // Close dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+                searchRef.current && !searchRef.current.contains(event.target)) {
+                setShowDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Debounced search
+    useEffect(() => {
+        if (!query || query.trim().length < 2) {
+            setResults(null);
+            setShowDropdown(false);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            setLoading(true);
+            try {
+                const response = await searchAPI.query(query);
+                setResults(response.data.results);
+                setShowDropdown(true);
+            } catch (error) {
+                console.error('Search failed:', error);
+            } finally {
+                setLoading(false);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [query]);
+
+    const handleResultClick = (link) => {
+        navigate(link);
+        setQuery('');
+        setShowDropdown(false);
+    };
 
     const handleLogout = () => {
         logout();
@@ -28,7 +78,47 @@ const Header = ({ title, onMenuToggle }) => {
                         <span className="hamburger-line"></span>
                         <span className="hamburger-line"></span>
                     </button>
-                    <h1 className="header-title">{title}</h1>
+
+                    <div className="header-search-container" ref={searchRef}>
+                        <div className="search-input-wrapper">
+                            <span className="search-icon">🔍</span>
+                            <input
+                                type="text"
+                                className="header-search-input"
+                                placeholder="Search employees, tasks, groups..."
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                onFocus={() => query.length >= 2 && setShowDropdown(true)}
+                            />
+                            {loading && <div className="search-loader" />}
+                        </div>
+
+                        {showDropdown && results && (
+                            <div className="search-dropdown" ref={dropdownRef}>
+                                {Object.keys(results).every(k => results[k].length === 0) ? (
+                                    <div className="search-no-results">No matches found</div>
+                                ) : (
+                                    Object.keys(results).map(category => (
+                                        results[category].length > 0 && (
+                                            <div key={category} className="search-section">
+                                                <div className="search-section-title">{category.toUpperCase()}</div>
+                                                {results[category].map(item => (
+                                                    <div
+                                                        key={item.id}
+                                                        className="search-result-item"
+                                                        onClick={() => handleResultClick(item.link)}
+                                                    >
+                                                        <div className="result-title">{item.title}</div>
+                                                        <div className="result-caption">{item.caption}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="header-actions">

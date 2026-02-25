@@ -4,10 +4,28 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const ExcelJS = require('exceljs');
+const mongoose = require('mongoose');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const CalendarEvent = require('../models/CalendarEvent');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+
+/* ─────────────────────────────────────────────────────────────
+   Helpers: IST Date & Time
+───────────────────────────────────────────────────────────── */
+function todayIST() {
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // 'YYYY-MM-DD'
+}
+
+function timeIST() {
+    return new Date().toLocaleTimeString('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 
 // ── Helper: format attendance record for response ─────────────────────────────
 async function populate(rec) {
@@ -60,9 +78,19 @@ router.get('/', authenticateToken, async (req, res) => {
 // NOTE: must be before /:id to avoid 'today' being treated as an id
 router.get('/today', authenticateToken, async (req, res) => {
     try {
-        const today = new Date().toISOString().split('T')[0];
+        const today = todayIST();
         const rec = await Attendance.findOne({ user: req.user.id, date: today })
             .populate('user', 'name email department');
+
+        // Check for incomplete attendance from previous days
+        const incompleteRec = await Attendance.findOne({
+            user: req.user.id,
+            date: { $lt: today },
+            clockIn: { $ne: null },
+            clockOut: null
+        });
+
+        const incompleteAttendance = !!incompleteRec;
 
         let record = null;
         if (rec) {
@@ -77,7 +105,8 @@ router.get('/today', authenticateToken, async (req, res) => {
             success: true,
             record,
             hasClockedIn: !!record,
-            canClockOut: record && record.check_in_time && !record.check_out_time
+            canClockOut: record && record.check_in_time && !record.check_out_time,
+            incompleteAttendance
         });
     } catch (error) {
         console.error('GET /attendance/today error:', error);
@@ -92,114 +121,133 @@ router.get('/export/monthly', authenticateToken, isAdmin, async (req, res) => {
         const month = parseInt(req.query.month, 10) || new Date().getMonth() + 1;
         const year = parseInt(req.query.year, 10) || new Date().getFullYear();
 
-        // Build YYYY-MM-DD range strings for the selected month
         const paddedMonth = String(month).padStart(2, '0');
         const startDate = `${year}-${paddedMonth}-01`;
-        const lastDay = new Date(year, month, 0).getDate(); // day 0 of next month = last day of this month
+        const lastDay = new Date(year, month, 0).getDate();
         const endDate = `${year}-${paddedMonth}-${String(lastDay).padStart(2, '0')}`;
 
-        const records = await Attendance.find({
-            date: { $gte: startDate, $lte: endDate }
-        })
-            .populate('user', 'name email department position')
-            .sort({ date: 1 });
-
-        // Build Excel workbook
-        const workbook = new ExcelJS.Workbook();
-        workbook.creator = 'GenLab HR System';
-        workbook.created = new Date();
-
-        const sheet = workbook.addWorksheet(`Attendance ${paddedMonth}-${year}`);
-
-        // Header row
-        sheet.columns = [
-            { header: 'Employee Name', key: 'name', width: 24 },
-            { header: 'Email', key: 'email', width: 28 },
-            { header: 'Department', key: 'department', width: 18 },
-            { header: 'Position', key: 'position', width: 18 },
-            { header: 'Date', key: 'date', width: 14 },
-            { header: 'Clock In', key: 'clockIn', width: 12 },
-            { header: 'Clock Out', key: 'clockOut', width: 12 },
-            { header: 'Total Hours', key: 'totalHours', width: 14 },
-            { header: 'Status', key: 'status', width: 12 },
-        ];
-
-        // Style header row
-        const headerRow = sheet.getRow(1);
-        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        headerRow.fill = {
-            type: 'pattern', pattern: 'solid',
-            fgColor: { argb: 'FF1F3A5F' }
-        };
-        headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
-        headerRow.height = 20;
-
-        if (records.length === 0) {
-            // Return empty sheet with headers only
-        } else {
-            records.forEach(r => {
-                const user = r.user || {};
-
-                // Prefer stored totalHours; fall back to string-based computation
-                let totalHrsDisplay = r.totalHours != null
-                    ? `${r.totalHours} hrs`
-                    : (r.check_in_time && r.check_out_time
-                        ? (() => {
-                            const [ih, im] = r.check_in_time.split(':').map(Number);
-                            const [oh, om] = r.check_out_time.split(':').map(Number);
-                            const diff = (oh * 60 + om) - (ih * 60 + im);
-                            if (diff < 0) return '-';
-                            return `${(diff / 60).toFixed(2)} hrs`;
-                        })()
-                        : '-');
-
-                sheet.addRow({
-                    name: user.name || '-',
-                    email: user.email || '-',
-                    department: user.department || '-',
-                    position: user.position || '-',
-                    date: r.date,
-                    clockIn: r.check_in_time || '-',
-                    clockOut: r.check_out_time || '-',
-                    totalHours: totalHrsDisplay,
-                    status: r.status,
-                });
-            });
-
-            // Zebra striping on data rows
-            sheet.eachRow((row, rowNumber) => {
-                if (rowNumber === 1) return;
-                const fill = rowNumber % 2 === 0
-                    ? 'FFF0F4FA'
-                    : 'FFFFFFFF';
-                row.eachCell(cell => {
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
-                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                });
-            });
-        }
-
-        // Auto-filter
-        sheet.autoFilter = {
-            from: { row: 1, column: 1 },
-            to: { row: sheet.rowCount, column: sheet.columnCount }
-        };
-
-        // Stream the file back
-        const filename = `attendance_${year}_${paddedMonth}.xlsx`;
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-
-        await workbook.xlsx.write(res);
-        res.end();
+        await generateAttendanceExcel(res, startDate, endDate, `attendance_${year}_${paddedMonth}.xlsx`);
     } catch (error) {
         console.error('GET /attendance/export/monthly error:', error);
         res.status(500).json({ success: false, message: 'Failed to generate export' });
     }
 });
 
+// ── GET /api/attendance/export ────────────────────────────────────────────────
+// Admin only – supports custom date range via ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+router.get('/export', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
+        }
+
+        // Basic date format validation (YYYY-MM-DD)
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(startDate) || !dateRegex.test(endDate)) {
+            return res.status(400).json({ success: false, message: 'Invalid date format. Use YYYY-MM-DD' });
+        }
+
+        await generateAttendanceExcel(res, startDate, endDate, `attendance_export_${startDate}_to_${endDate}.xlsx`);
+    } catch (error) {
+        console.error('GET /attendance/export error:', error);
+        res.status(500).json({ success: false, message: 'Failed to generate export' });
+    }
+});
+
+// Helper: Generate Excel file from attendance records
+async function generateAttendanceExcel(res, startDate, endDate, filename) {
+    const records = await Attendance.find({
+        date: { $gte: startDate, $lte: endDate }
+    })
+        .populate('user', 'name email department position')
+        .sort({ date: 1 });
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'GenLab HR System';
+    workbook.created = new Date();
+
+    const sheet = workbook.addWorksheet('Attendance Report');
+
+    sheet.columns = [
+        { header: 'Employee Name', key: 'name', width: 24 },
+        { header: 'Email', key: 'email', width: 28 },
+        { header: 'Department', key: 'department', width: 18 },
+        { header: 'Position', key: 'position', width: 18 },
+        { header: 'Date', key: 'date', width: 14 },
+        { header: 'Clock In', key: 'clockIn', width: 12 },
+        { header: 'Clock Out', key: 'clockOut', width: 12 },
+        { header: 'Total Hours', key: 'totalHours', width: 14 },
+        { header: 'Status', key: 'status', width: 12 },
+    ];
+
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = {
+        type: 'pattern', pattern: 'solid',
+        fgColor: { argb: 'FF1F3A5F' }
+    };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    headerRow.height = 20;
+
+    records.forEach(r => {
+        const user = r.user || {};
+        let totalHrsDisplay = r.totalHours != null
+            ? `${r.totalHours} hrs`
+            : (r.check_in_time && r.check_out_time
+                ? (() => {
+                    const [ih, im] = r.check_in_time.split(':').map(Number);
+                    const [oh, om] = r.check_out_time.split(':').map(Number);
+                    const diff = (oh * 60 + om) - (ih * 60 + im);
+                    if (diff < 0) return '-';
+                    return `${(diff / 60).toFixed(2)} hrs`;
+                })()
+                : '-');
+
+        sheet.addRow({
+            name: user.name || '-',
+            email: user.email || '-',
+            department: user.department || '-',
+            position: user.position || '-',
+            date: r.date,
+            clockIn: r.check_in_time || '-',
+            clockOut: r.check_out_time || '-',
+            totalHours: totalHrsDisplay,
+            status: r.status,
+        });
+    });
+
+    sheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+        const fill = rowNumber % 2 === 0 ? 'FFF0F4FA' : 'FFFFFFFF';
+        row.eachCell(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: fill } };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+    });
+
+    sheet.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: sheet.rowCount, column: sheet.columnCount }
+    };
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+}
+
+
 // ── GET /api/attendance/:id ───────────────────────────────────────────────────
 router.get('/:id', authenticateToken, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     try {
         const rec = await Attendance.findById(req.params.id)
             .populate('user', 'name email department');
@@ -263,6 +311,12 @@ router.post('/', authenticateToken, [
 router.put('/:id', authenticateToken, [
     body('status').optional().isIn(['present', 'absent', 'half-day', 'leave'])
 ], async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
@@ -303,6 +357,12 @@ router.put('/:id', authenticateToken, [
 
 // ── DELETE /api/attendance/:id ─────────────────────────────────────────────────
 router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     try {
         const result = await Attendance.findByIdAndDelete(req.params.id);
         if (!result) return res.status(404).json({ success: false, message: 'Attendance record not found' });
@@ -316,7 +376,7 @@ router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
 // ── POST /api/attendance/clock-in ──────────────────────────────────────────────
 router.post('/clock-in', authenticateToken, async (req, res) => {
     const user_id = req.user.id;
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD in UTC
+    const today = todayIST();
 
     try {
         // Check if today is a holiday
@@ -369,8 +429,8 @@ router.post('/clock-in', authenticateToken, async (req, res) => {
         }
 
         // ── Create clock-in record ─────────────────────────────────────────────
-        const now = new Date(); // UTC
-        const check_in_time = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
+        const now = new Date(); // Global UTC Date object
+        const check_in_time = timeIST();
 
         const created = await Attendance.create({
             user: user_id,
@@ -386,7 +446,7 @@ router.post('/clock-in', authenticateToken, async (req, res) => {
         record.email = rec.user.email;
         record.department = rec.user.department;
 
-        res.status(201).json({ success: true, message: `Clocked in successfully at ${check_in_time} UTC`, record });
+        res.status(201).json({ success: true, message: `Clocked in successfully at ${check_in_time} IST`, record });
     } catch (error) {
         console.error('Clock-in error:', error);
         res.status(500).json({ success: false, message: 'Failed to clock in' });
@@ -396,7 +456,7 @@ router.post('/clock-in', authenticateToken, async (req, res) => {
 // ── POST /api/attendance/clock-out ─────────────────────────────────────────────
 router.post('/clock-out', authenticateToken, async (req, res) => {
     const user_id = req.user.id;
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD in UTC
+    const today = todayIST();
 
     try {
         const existing = await Attendance.findOne({ user: user_id, date: today });
@@ -421,22 +481,29 @@ router.post('/clock-out', authenticateToken, async (req, res) => {
         }
 
         // ── Calculate totalHours ──────────────────────────────────────────────
-        const now = new Date(); // UTC
-        const check_out_time = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
+        const now = new Date(); // Global UTC Date object
+        const check_out_time = timeIST();
 
-        let totalHours = null;
-        if (existing.clockIn) {
-            // Precise: use stored UTC Date objects
-            totalHours = parseFloat(((now - existing.clockIn) / (1000 * 60 * 60)).toFixed(2));
-        } else {
-            // Fallback: derive from HH:MM strings
-            const [ih, im] = existing.check_in_time.split(':').map(Number);
-            const [oh, om] = check_out_time.split(':').map(Number);
-            const diffMins = (oh * 60 + om) - (ih * 60 + im);
-            if (diffMins > 0) {
-                totalHours = parseFloat((diffMins / 60).toFixed(2));
-            }
+        const clockIn = existing.clockIn;
+        const clockOut = now;
+
+        if (!clockIn) {
+            return res.status(400).json({
+                success: false,
+                message: "Clock-in record incomplete"
+            });
         }
+
+        const diffMs = clockOut - clockIn;
+
+        if (diffMs <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Clock-out time invalid"
+            });
+        }
+
+        const totalHours = parseFloat((diffMs / 3600000).toFixed(2));
 
         const rec = await Attendance.findByIdAndUpdate(
             existing._id,
@@ -452,7 +519,7 @@ router.post('/clock-out', authenticateToken, async (req, res) => {
 
         res.json({
             success: true,
-            message: `Clocked out successfully at ${check_out_time} UTC. Total hours: ${totalHours ?? '-'}`,
+            message: `Clocked out successfully at ${check_out_time} IST. Total hours: ${totalHours ?? '-'}`,
             record
         });
     } catch (error) {

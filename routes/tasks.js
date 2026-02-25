@@ -3,10 +3,12 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 const notify = require('../utils/notify');
+
 
 // ── Shape helper ──────────────────────────────────────────────────────────────
 function shapeTask(t) {
@@ -46,6 +48,12 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // ── GET /api/tasks/:id ─────────────────────────────────────────────────────────
 router.get('/:id', authenticateToken, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     try {
         const task = await Task.findById(req.params.id).populate(POP);
         if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
@@ -111,6 +119,12 @@ router.put('/:id', authenticateToken, [
     body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']),
     body('due_date').optional().isDate()
 ], async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
@@ -123,13 +137,27 @@ router.put('/:id', authenticateToken, [
                 return res.status(403).json({ success: false, message: 'Access denied' });
             }
 
+            // Employees may ONLY update status — strict check
+            const allowedFields = ["status"];
+            const keys = Object.keys(req.body);
+            const isValid = keys.every(key => allowedFields.includes(key));
+
+            if (!isValid) {
+                return res.status(403).json({
+                    success: false,
+                    message: "Employees can only update status"
+                });
+            }
+
             const { status } = req.body;
-            if (!status || Object.keys(req.body).length > 1) {
-                return res.status(403).json({ success: false, message: 'Employees can only update task status' });
+            if (!status) {
+                return res.status(400).json({ success: false, message: 'Status is required to update a task' });
             }
 
             const updates = { status };
             if (status === 'completed') updates.completed_at = new Date();
+            // If moving OUT of completed, clear the timestamp
+            if (status !== 'completed' && existing.status === 'completed') updates.completed_at = null;
 
             const task = await Task.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true }).populate(POP);
             return res.json({ success: true, message: 'Task status updated successfully', task: shapeTask(task) });
@@ -147,6 +175,7 @@ router.put('/:id', authenticateToken, [
         if (status !== undefined) {
             updates.status = status;
             if (status === 'completed') updates.completed_at = new Date();
+            if (status !== 'completed' && existing.status === 'completed') updates.completed_at = null;
         }
 
         if (Object.keys(updates).length === 0) {
@@ -163,6 +192,12 @@ router.put('/:id', authenticateToken, [
 
 // ── DELETE /api/tasks/:id ──────────────────────────────────────────────────────
 router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     try {
         const result = await Task.findByIdAndDelete(req.params.id);
         if (!result) return res.status(404).json({ success: false, message: 'Task not found' });

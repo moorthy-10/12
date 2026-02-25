@@ -2,10 +2,10 @@
 
 const express = require('express');
 const router = express.Router();
-const { body, validationResult } = require('express-validator');
-const { body: bodyV } = require('express-validator');
+const mongoose = require('mongoose');
 const Notification = require('../models/Notification');
 const { authenticateToken } = require('../middleware/auth');
+
 
 // ── GET /api/notifications ────────────────────────────────────────────────────
 router.get('/', authenticateToken, async (req, res) => {
@@ -38,6 +38,12 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // ── PUT /api/notifications/:id/read ──────────────────────────────────────────
 router.put('/:id/read', authenticateToken, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     try {
         const notif = await Notification.findOneAndUpdate(
             { _id: req.params.id, user: req.user.id },
@@ -65,6 +71,12 @@ router.put('/read-all', authenticateToken, async (req, res) => {
 
 // ── DELETE /api/notifications/:id ─────────────────────────────────────────────
 router.delete('/:id', authenticateToken, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     try {
         const result = await Notification.findOneAndDelete({ _id: req.params.id, user: req.user.id });
         if (!result) return res.status(404).json({ success: false, message: 'Notification not found' });

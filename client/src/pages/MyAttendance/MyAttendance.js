@@ -12,6 +12,8 @@ const MyAttendance = () => {
     const [filters, setFilters] = useState({ start_date: '', end_date: '' });
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [incompleteAttendance, setIncompleteAttendance] = useState(false);
+
 
     const fetchRecords = useCallback(async () => {
         try {
@@ -28,10 +30,12 @@ const MyAttendance = () => {
         try {
             const response = await attendanceAPI.getToday();
             setTodayRecord(response.data.record);
+            setIncompleteAttendance(response.data.incompleteAttendance);
         } catch (error) {
             console.error('Failed to fetch today status:', error);
         }
     }, []);
+
 
     useEffect(() => {
         fetchRecords();
@@ -138,6 +142,12 @@ const MyAttendance = () => {
                             )}
                         </div>
                     </div>
+
+                    {incompleteAttendance && (
+                        <div className="alert alert-warning" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span>⚠️ Incomplete Attendance Record - Please check your previous clock-outs.</span>
+                        </div>
+                    )}
 
                     {(error || success) && (
                         <div className={`alert ${error ? 'alert-error' : 'alert-success'}`}>
@@ -301,14 +311,16 @@ const calculateHours = (checkIn, checkOut) => {
     const [inHours, inMinutes] = checkIn.split(':').map(Number);
     const [outHours, outMinutes] = checkOut.split(':').map(Number);
 
-    const inTotalMinutes = inHours * 60 + inMinutes;
-    const outTotalMinutes = outHours * 60 + outMinutes;
+    const clockIn = new Date();
+    clockIn.setHours(inHours, inMinutes, 0, 0);
 
-    const diffMinutes = outTotalMinutes - inTotalMinutes;
-    const hours = Math.floor(diffMinutes / 60);
-    const minutes = diffMinutes % 60;
+    const clockOut = new Date();
+    clockOut.setHours(outHours, outMinutes, 0, 0);
 
-    return `${hours}h ${minutes}m`;
+    if (clockOut > clockIn) {
+        return ((clockOut - clockIn) / 3600000).toFixed(2) + ' hrs';
+    }
+    return '0.00 hrs';
 };
 
 const getStatusColor = (status) => {

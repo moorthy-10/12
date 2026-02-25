@@ -9,6 +9,8 @@ const Attendance = () => {
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({ start_date: '', end_date: '', status: '' });
     const [showModal, setShowModal] = useState(false);
+    const [sortKey, setSortKey] = useState('date');
+    const [sortDir, setSortDir] = useState('desc');
 
     // Export state
     const now = new Date();
@@ -16,6 +18,8 @@ const Attendance = () => {
     const [exportYear, setExportYear] = useState(now.getFullYear());
     const [exporting, setExporting] = useState(false);
     const [exportError, setExportError] = useState('');
+    const [exportRange, setExportRange] = useState({ startDate: '', endDate: '' });
+
 
     useEffect(() => {
         fetchRecords();
@@ -35,6 +39,25 @@ const Attendance = () => {
     const handleFilterChange = (key, value) => {
         setFilters({ ...filters, [key]: value });
     };
+
+    const toggleSort = (key) => {
+        if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+        else { setSortKey(key); setSortDir('desc'); }
+    };
+
+    const sortedRecords = [...records].sort((a, b) => {
+        const multi = sortDir === 'desc' ? -1 : 1;
+        let valA = a[sortKey];
+        let valB = b[sortKey];
+
+        // Handle case-insensitive comparison for strings
+        if (typeof valA === 'string') valA = valA.toLowerCase();
+        if (typeof valB === 'string') valB = valB.toLowerCase();
+
+        if (valA < valB) return -1 * multi;
+        if (valA > valB) return 1 * multi;
+        return 0;
+    });
 
     // ── Monthly Export Handler ─────────────────────────────────────────────────
     const handleExport = async () => {
@@ -61,6 +84,35 @@ const Attendance = () => {
             setExporting(false);
         }
     };
+
+    const handleExportRange = async () => {
+        if (!exportRange.startDate || !exportRange.endDate) {
+            setExportError('Please select both start and end dates');
+            return;
+        }
+        setExporting(true);
+        setExportError('');
+        try {
+            const response = await attendanceAPI.exportRange(exportRange.startDate, exportRange.endDate);
+            const blob = new Blob([response.data], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `attendance_range_${exportRange.startDate}_to_${exportRange.endDate}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Range export failed:', err);
+            setExportError('Export failed. Check console for details.');
+        } finally {
+            setExporting(false);
+        }
+    };
+
 
     if (loading) {
         return (
@@ -178,6 +230,53 @@ const Attendance = () => {
                             <span style={{ color: '#fc8181', fontSize: '0.875rem' }}>{exportError}</span>
                         )}
                     </div>
+
+                    <div style={{
+                        marginTop: '1rem',
+                        paddingTop: '1rem',
+                        borderTop: '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '1rem'
+                    }}>
+                        <span style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.95rem', whiteSpace: 'nowrap' }}>
+                            📅 Custom Date Range
+                        </span>
+
+                        <input
+                            type="date"
+                            className="form-input"
+                            value={exportRange.startDate}
+                            onChange={(e) => setExportRange({ ...exportRange, startDate: e.target.value })}
+                            style={{ minWidth: '150px' }}
+                        />
+
+                        <span style={{ color: '#e2e8f0' }}>to</span>
+
+                        <input
+                            type="date"
+                            className="form-input"
+                            value={exportRange.endDate}
+                            onChange={(e) => setExportRange({ ...exportRange, endDate: e.target.value })}
+                            style={{ minWidth: '150px' }}
+                        />
+
+                        <button
+                            id="btn-export-range"
+                            className="btn btn-secondary"
+                            onClick={handleExportRange}
+                            disabled={exporting}
+                            style={{
+                                background: exporting ? '#2d3748' : '#6366f1',
+                                color: 'white',
+                                border: 'none',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {exporting ? '⏳ Generating...' : '⬇️ Export Range'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Attendance Records Table ────────────────────────────── */}
@@ -186,10 +285,10 @@ const Attendance = () => {
                         <table className="table">
                             <thead>
                                 <tr>
-                                    <th>Date</th>
-                                    <th>Employee</th>
-                                    <th>Department</th>
-                                    <th>Status</th>
+                                    <SortTh label="Date" k="date" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="Employee" k="user_name" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="Department" k="department" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="Status" k="status" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
                                     <th>Clock In</th>
                                     <th>Clock Out</th>
                                     <th>Total Hours</th>
@@ -197,14 +296,14 @@ const Attendance = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {records.length === 0 ? (
+                                {sortedRecords.length === 0 ? (
                                     <tr>
                                         <td colSpan="8" className="text-center" style={{ padding: '2rem', color: 'var(--gray-500)' }}>
                                             No attendance records found
                                         </td>
                                     </tr>
                                 ) : (
-                                    records.map((record) => (
+                                    sortedRecords.map((record) => (
                                         <tr key={record.id}>
                                             <td>{new Date(record.date).toLocaleDateString()}</td>
                                             <td>{record.user_name}</td>
@@ -231,17 +330,17 @@ const Attendance = () => {
                         </table>
                     </div>
                 </div>
-            </div>
 
-            {showModal && (
-                <AttendanceModal
-                    onClose={() => setShowModal(false)}
-                    onSuccess={() => {
-                        fetchRecords();
-                        setShowModal(false);
-                    }}
-                />
-            )}
+                {showModal && (
+                    <AttendanceModal
+                        onClose={() => setShowModal(false)}
+                        onSuccess={() => {
+                            fetchRecords();
+                            setShowModal(false);
+                        }}
+                    />
+                )}
+            </div>
         </MainLayout>
     );
 };
@@ -249,7 +348,7 @@ const Attendance = () => {
 // ── Mark-Attendance Modal ──────────────────────────────────────────────────────
 const AttendanceModal = ({ onClose, onSuccess }) => {
     const [formData, setFormData] = useState({
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }),
         status: 'present',
         check_in_time: '',
         check_out_time: '',
@@ -358,6 +457,14 @@ const AttendanceModal = ({ onClose, onSuccess }) => {
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+const SortTh = ({ label, k, sortKey, sortDir, onClick }) => (
+    <th onClick={() => onClick(k)} style={{ cursor: 'pointer', userSelect: 'none' }} title={`Sort by ${label}`}>
+        {label}
+        <span style={{ marginLeft: '0.5rem', opacity: sortKey === k ? 1 : 0.3 }}>
+            {sortKey === k ? (sortDir === 'desc' ? '↓' : '↑') : '⇅'}
+        </span>
+    </th>
+);
 const calcHours = (checkIn, checkOut) => {
     if (!checkIn || !checkOut) return '-';
     const [ih, im] = checkIn.split(':').map(Number);

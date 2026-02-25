@@ -3,8 +3,10 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const CalendarEvent = require('../models/CalendarEvent');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+
 
 // ── Shape helper ──────────────────────────────────────────────────────────────
 function shapeEvent(e) {
@@ -57,6 +59,12 @@ router.get('/check-holiday/:date', authenticateToken, async (req, res) => {
 
 // ── GET /api/calendar/:id ──────────────────────────────────────────────────────
 router.get('/:id', authenticateToken, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     try {
         const event = await CalendarEvent.findById(req.params.id).populate('created_by', 'name');
         if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
@@ -110,6 +118,12 @@ router.put('/:id', authenticateToken, isAdmin, [
     body('end_date').optional().isDate(),
     body('is_holiday').optional().isBoolean()
 ], async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
@@ -145,6 +159,12 @@ router.put('/:id', authenticateToken, isAdmin, [
 
 // ── DELETE /api/calendar/:id ───────────────────────────────────────────────────
 router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     try {
         const result = await CalendarEvent.findByIdAndDelete(req.params.id);
         if (!result) return res.status(404).json({ success: false, message: 'Event not found' });

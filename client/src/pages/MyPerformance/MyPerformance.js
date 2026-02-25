@@ -106,75 +106,85 @@ const MyPerformance = () => {
                 {error && <div className="my-perf-error">{error}</div>}
 
                 {perf && (
-                    <>
-                        {/* ── Score hero card ── */}
-                        <div className="my-hero-card">
-                            <div className="my-hero-arc">
-                                <ArcProgress pct={perf.completionRate} color={ringColor} />
-                                <div className="my-arc-label">Completion Rate</div>
-                            </div>
-
-                            <div className="my-hero-body">
-                                <div className="my-hero-name">{perf.name}</div>
-                                <div className={`my-score-badge ${badge.cls}`}>
-                                    <FaStar /> {badge.label}
+                    perf.totalTasksCompleted === 0 ? (
+                        <div className="my-perf-empty">
+                            <FaClipboardList style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }} />
+                            <p>No performance data available yet.</p>
+                            <span style={{ fontSize: '0.9rem', color: 'var(--gray-500)' }}>
+                                Complete tasks to see your performance metrics.
+                            </span>
+                        </div>
+                    ) : (
+                        <>
+                            {/* ── Score hero card ── */}
+                            <div className="my-hero-card">
+                                <div className="my-hero-arc">
+                                    <ArcProgress pct={perf.completionRate} color={ringColor} />
+                                    <div className="my-arc-label">Completion Rate</div>
                                 </div>
-                                <div className="my-score-number">
-                                    Score: <strong>{perf.performanceScore}</strong><span> / 100</span>
+
+                                <div className="my-hero-body">
+                                    <div className="my-hero-name">{perf.name}</div>
+                                    <div className={`my-score-badge ${badge.cls}`}>
+                                        <FaStar /> {badge.label}
+                                    </div>
+                                    <div className="my-score-number">
+                                        Score: <strong>{perf.performanceScore}</strong><span> / 100</span>
+                                    </div>
+                                    <p className="my-hero-msg">{badge.msg}</p>
                                 </div>
-                                <p className="my-hero-msg">{badge.msg}</p>
-                            </div>
-                        </div>
-
-                        {/* ── Metric cards ── */}
-                        <div className="my-metrics-grid">
-                            <MetricCard
-                                icon={<FaClipboardList />}
-                                label="Tasks Assigned"
-                                value={perf.totalTasksAssigned}
-                                color="blue"
-                            />
-                            <MetricCard
-                                icon={<FaCheckCircle />}
-                                label="Tasks Completed"
-                                value={perf.totalTasksCompleted}
-                                color="green"
-                            />
-                            <MetricCard
-                                icon={<FaExclamationTriangle />}
-                                label="Late Tasks"
-                                value={perf.lateTasks}
-                                color="red"
-                            />
-                            <MetricCard
-                                icon={<FaStar />}
-                                label="Points Earned"
-                                value={perf.totalPointsEarned}
-                                color="purple"
-                            />
-                        </div>
-
-                        {/* ── Breakdown panel ── */}
-                        <div className="my-breakdown-card">
-                            <h2 className="my-breakdown-title">Score Breakdown</h2>
-                            <div className="my-breakdown-rows">
-                                <BreakdownRow label="Points from completed tasks" value={`+${perf.totalPointsEarned} pts`} positive />
-                                <BreakdownRow label="Late task penalty (×2 each)" value={`−${perf.lateTasks * 2} pts`} negative />
-                                <BreakdownRow label="Completion rate" value={`${perf.completionRate}%`} />
-                                <BreakdownRow label="Overall performance score" value={<strong>{perf.performanceScore} / 100</strong>} highlight />
                             </div>
 
-                            <div className="my-scoring-info">
-                                <h3>How is your score calculated?</h3>
-                                <ul>
-                                    <li><span className="dot dot-low" /> Low priority task = <strong>1 point</strong></li>
-                                    <li><span className="dot dot-med" /> Medium priority task = <strong>2 points</strong></li>
-                                    <li><span className="dot dot-high" /> High / Urgent priority task = <strong>3 points</strong></li>
-                                    <li><span className="dot dot-late" /> Each late task deducts <strong>2 points</strong></li>
-                                </ul>
+                            {/* ── Metric cards ── */}
+                            <div className="my-metrics-grid">
+                                <MetricCard
+                                    icon={<FaClipboardList />}
+                                    label="Tasks Assigned"
+                                    value={perf.totalTasksAssigned}
+                                    color="blue"
+                                />
+                                <MetricCard
+                                    icon={<FaCheckCircle />}
+                                    label="Tasks Completed"
+                                    value={perf.totalTasksCompleted}
+                                    color="green"
+                                />
+                                <MetricCard
+                                    icon={<FaExclamationTriangle />}
+                                    label="Late Tasks"
+                                    value={perf.lateTasks}
+                                    color="red"
+                                />
+                                <MetricCard
+                                    icon={<FaStar />}
+                                    label="Points Earned"
+                                    value={perf.totalPointsEarned}
+                                    color="purple"
+                                />
                             </div>
-                        </div>
-                    </>
+
+                            {/* ── Breakdown panel ── */}
+                            <div className="my-breakdown-card">
+                                <h2 className="my-breakdown-title">Score Breakdown</h2>
+                                <div className="my-breakdown-rows">
+                                    <BreakdownRow label="Points from completed tasks" value={`+${perf.totalPointsEarned} pts`} positive />
+                                    <BreakdownRow label="Late task penalty (×2 each)" value={`−${perf.lateTasks * 2} pts`} negative />
+                                    <BreakdownRow label="Completion rate" value={`${perf.completionRate}%`} />
+                                    <BreakdownRow label="Overall performance score" value={<strong>{perf.performanceScore} / 100</strong>} highlight />
+                                </div>
+
+                                <div className="my-scoring-info">
+                                    <h3>How is your score calculated?</h3>
+                                    <ul>
+                                        <li><span className="dot dot-low" /> Low priority task = <strong>1 point</strong></li>
+                                        <li><span className="dot dot-med" /> Medium priority task = <strong>2 points</strong></li>
+                                        <li><span className="dot dot-high" /> High / Urgent priority task = <strong>3 points</strong></li>
+                                        <li><span className="dot dot-late" /> Each late task deducts <strong>2 points</strong></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </>
+                    )
                 )}
             </div>
         </MainLayout>

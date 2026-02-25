@@ -11,6 +11,8 @@ const Tasks = () => {
     const [filters, setFilters] = useState({ status: '', priority: '', assigned_to: '' });
     const [showModal, setShowModal] = useState(false);
     const [editingTask, setEditingTask] = useState(null);
+    const [sortKey, setSortKey] = useState('due_date');
+    const [sortDir, setSortDir] = useState('asc');
 
     const fetchTasks = useCallback(async () => {
         try {
@@ -71,6 +73,24 @@ const Tasks = () => {
         fetchTasks();
         handleModalClose();
     };
+
+    const toggleSort = (key) => {
+        if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+        else { setSortKey(key); setSortDir('asc'); }
+    };
+
+    const sortedTasks = [...tasks].sort((a, b) => {
+        const multi = sortDir === 'desc' ? -1 : 1;
+        let valA = a[sortKey] || '';
+        let valB = b[sortKey] || '';
+
+        if (typeof valA === 'string') valA = valA.toLowerCase();
+        if (typeof valB === 'string') valB = valB.toLowerCase();
+
+        if (valA < valB) return -1 * multi;
+        if (valA > valB) return 1 * multi;
+        return 0;
+    });
 
     if (loading) {
         return (
@@ -133,24 +153,24 @@ const Tasks = () => {
                         <table className="table">
                             <thead>
                                 <tr>
-                                    <th>Title</th>
-                                    <th>Assigned To</th>
-                                    <th>Priority</th>
-                                    <th>Status</th>
-                                    <th>Due Date</th>
+                                    <SortTh label="Title" k="title" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="Assigned To" k="assigned_to_name" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="Priority" k="priority" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="Status" k="status" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="Due Date" k="due_date" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
                                     <th>Created By</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {tasks.length === 0 ? (
+                                {sortedTasks.length === 0 ? (
                                     <tr>
                                         <td colSpan="7" className="text-center" style={{ padding: '2rem', color: 'var(--gray-500)' }}>
                                             No tasks found
                                         </td>
                                     </tr>
                                 ) : (
-                                    tasks.map((task) => (
+                                    sortedTasks.map((task) => (
                                         <tr key={task.id}>
                                             <td>
                                                 <div style={{ fontWeight: '500' }}>{task.title}</div>
@@ -385,3 +405,13 @@ const getPriorityColor = (priority) => {
 };
 
 export default Tasks;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const SortTh = ({ label, k, sortKey, sortDir, onClick }) => (
+    <th onClick={() => onClick(k)} style={{ cursor: 'pointer', userSelect: 'none' }} title={`Sort by ${label}`}>
+        {label}
+        <span style={{ marginLeft: '0.5rem', opacity: sortKey === k ? 1 : 0.3 }}>
+            {sortKey === k ? (sortDir === 'desc' ? '↓' : '↑') : '⇅'}
+        </span>
+    </th>
+);

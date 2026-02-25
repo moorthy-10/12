@@ -6,8 +6,10 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const axios = require('axios');
 const { body, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+
 
 // ── GET /api/users ─────────────────────────────────────────────────────────────
 router.get('/', authenticateToken, isAdmin, async (req, res) => {
@@ -36,6 +38,12 @@ router.get('/', authenticateToken, isAdmin, async (req, res) => {
 
 // ── GET /api/users/:id ─────────────────────────────────────────────────────────
 router.get('/:id', authenticateToken, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     if (req.user.role !== 'admin' && req.user.id !== req.params.id) {
         return res.status(403).json({ success: false, message: 'Access denied' });
     }
@@ -133,6 +141,12 @@ router.put('/:id', authenticateToken, isAdmin, [
     body('role').optional().isIn(['admin', 'employee']),
     body('status').optional().isIn(['active', 'inactive'])
 ], async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(400).json({ success: false, errors: errors.array() });
@@ -171,6 +185,12 @@ router.put('/:id', authenticateToken, isAdmin, [
 
 // ── DELETE /api/users/:id ──────────────────────────────────────────────────────
 router.delete('/:id', authenticateToken, isAdmin, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     if (req.user.id === req.params.id) {
         return res.status(400).json({ success: false, message: 'Cannot delete your own account' });
     }

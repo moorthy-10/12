@@ -66,6 +66,11 @@ export const attendanceAPI = {
         api.get('/attendance/export/monthly', {
             params: { month, year },
             responseType: 'blob'
+        }),
+    exportRange: (startDate, endDate) =>
+        api.get('/attendance/export', {
+            params: { startDate, endDate },
+            responseType: 'blob'
         })
 };
 
@@ -83,7 +88,9 @@ export const leaveAPI = {
 export const dashboardAPI = {
     getAdminStats: () => api.get('/dashboard/admin/stats'),
     getEmployeeStats: () => api.get('/dashboard/employee/stats'),
-    getRecentActivities: (params) => api.get('/dashboard/admin/recent-activities', { params })
+    getRecentActivities: (params) => api.get('/dashboard/admin/recent-activities', { params }),
+    getUnifiedActivity: () => api.get('/dashboard/activity'),
+    getAnalytics: () => api.get('/dashboard/analytics')
 };
 
 // Calendar APIs
@@ -140,6 +147,23 @@ export const eventAPI = {
 // Performance APIs
 export const performanceAPI = {
     get: () => api.get('/performance')
+};
+
+// Standup APIs
+export const standupAPI = {
+    submit: (data) => api.post('/standup', data),
+    getToday: () => api.get('/standup/today'),
+    getMy: () => api.get('/standup/my'),
+    getPerformance: () => api.get('/standup/performance'),
+    // admin
+    getAll: (date) => api.get('/standup', { params: date ? { date } : {} }),
+    getSummary: (date) => api.get('/standup/summary', { params: date ? { date } : {} }),
+    remindMissing: () => api.post('/standup/remind-missing')
+};
+
+// Search APIs
+export const searchAPI = {
+    query: (q) => api.get('/search', { params: { q } })
 };
 
 export default api;

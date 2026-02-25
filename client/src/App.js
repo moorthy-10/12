@@ -15,6 +15,8 @@ import GroupChat from './pages/GroupChat/GroupChat';
 import CompanyCalendar from './pages/CompanyCalendar/CompanyCalendar';
 import Performance from './pages/Performance/Performance';
 import MyPerformance from './pages/MyPerformance/MyPerformance';
+import Standup from './pages/Standup/Standup';
+import StandupAdmin from './pages/StandupAdmin/StandupAdmin';
 import { ChatProvider } from './chat/ChatProvider';
 import { NotificationProvider } from './context/NotificationProvider';
 import FloatingChatButton from './chat/FloatingChatButton';
@@ -127,6 +129,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/standup-summary"
+        element={
+          <ProtectedRoute adminOnly>
+            <StandupAdmin />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Protected Routes - Employee Only */}
       <Route
@@ -158,6 +168,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <MyPerformance />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/standup"
+        element={
+          <ProtectedRoute>
+            <Standup />
           </ProtectedRoute>
         }
       />

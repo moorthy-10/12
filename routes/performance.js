@@ -76,13 +76,21 @@ router.get('/', authenticateToken, async (req, res) => {
             // Fetch all non-admin users
             const employees = await User.find({ role: 'employee' }).select('_id name email').lean();
 
-            // Fetch all tasks in one query and group by assigned_to
-            const allTasks = await Task.find({}).lean();
+            // Optimization: Filter tasks by date range if provided
+            const { start_date, end_date } = req.query;
+            const taskFilter = {};
+            if (start_date) taskFilter.createdAt = { $gte: new Date(start_date) };
+            if (end_date) taskFilter.createdAt = { $lte: new Date(end_date) };
+
+            // Fetch tasks and group by assigned_to
+            const allTasks = await Task.find(taskFilter).lean();
             const tasksByUser = {};
             allTasks.forEach(t => {
-                const uid = t.assigned_to.toString();
-                if (!tasksByUser[uid]) tasksByUser[uid] = [];
-                tasksByUser[uid].push(t);
+                if (t.assigned_to) {
+                    const uid = t.assigned_to.toString();
+                    if (!tasksByUser[uid]) tasksByUser[uid] = [];
+                    tasksByUser[uid].push(t);
+                }
             });
 
             const performance = employees.map(emp =>

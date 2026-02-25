@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 const calendarEventSchema = new mongoose.Schema({
     title: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
-    event_type: { type: String, enum: ['holiday', 'company-event', 'meeting', 'other'], default: 'other' },
+    event_type: { type: String, enum: ['holiday', 'company-event', 'meeting', 'leave', 'other'], default: 'other' },
     type: { type: String, default: 'announcement' }, // extended type (announcement, training, etc.)
     start_date: { type: String, required: true },
     end_date: { type: String, required: true },
@@ -18,7 +18,10 @@ const calendarEventSchema = new mongoose.Schema({
     recurrence_interval: { type: Number, default: 1 },
     created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    linkedLeaveId: { type: mongoose.Schema.Types.ObjectId, ref: 'Leave', default: null },
 }, { timestamps: true });
+
+calendarEventSchema.index({ linkedLeaveId: 1 });
 
 calendarEventSchema.virtual('id').get(function () { return this._id.toString(); });
 calendarEventSchema.set('toJSON', { virtuals: true, transform: (_, r) => { delete r._id; delete r.__v; return r; } });

@@ -6,8 +6,10 @@ const bcrypt = require('bcryptjs');
 const axios = require('axios');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+
 
 /**
  * Generate a secure random password
@@ -122,14 +124,19 @@ router.post('/create-user', authenticateToken, isAdmin, [
 
 // ── POST /api/admin/reset-password/:id ───────────────────────────────────────
 router.post('/reset-password/:id', authenticateToken, isAdmin, async (req, res) => {
-    const userId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
 
-    if (userId === req.user.id) {
+    if (req.params.id === req.user.id) {
         return res.status(400).json({ success: false, message: 'Use change-password to update your own password' });
     }
 
     try {
-        const user = await User.findById(userId).select('name email role');
+        const user = await User.findById(req.params.id).select('name email role');
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }

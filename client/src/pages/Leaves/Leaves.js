@@ -10,6 +10,8 @@ const Leaves = () => {
     const [filters, setFilters] = useState({ status: '', leave_type: '' });
     const [showModal, setShowModal] = useState(false);
     const [reviewingLeave, setReviewingLeave] = useState(null);
+    const [sortKey, setSortKey] = useState('start_date');
+    const [sortDir, setSortDir] = useState('desc');
 
     useEffect(() => {
         fetchLeaves();
@@ -33,6 +35,24 @@ const Leaves = () => {
     const handleReview = (leave) => {
         setReviewingLeave(leave);
     };
+
+    const toggleSort = (key) => {
+        if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+        else { setSortKey(key); setSortDir('desc'); }
+    };
+
+    const sortedLeaves = [...leaves].sort((a, b) => {
+        const multi = sortDir === 'desc' ? -1 : 1;
+        let valA = a[sortKey] || '';
+        let valB = b[sortKey] || '';
+
+        if (typeof valA === 'string') valA = valA.toLowerCase();
+        if (typeof valB === 'string') valB = valB.toLowerCase();
+
+        if (valA < valB) return -1 * multi;
+        if (valA > valB) return 1 * multi;
+        return 0;
+    });
 
     if (loading) {
         return (
@@ -79,25 +99,25 @@ const Leaves = () => {
                         <table className="table">
                             <thead>
                                 <tr>
-                                    <th>Employee</th>
-                                    <th>Type</th>
-                                    <th>Start Date</th>
-                                    <th>End Date</th>
-                                    <th>Days</th>
+                                    <SortTh label="Employee" k="user_name" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="Type" k="leave_type" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="Start Date" k="start_date" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="End Date" k="end_date" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
+                                    <SortTh label="Days" k="days" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
                                     <th>Reason</th>
-                                    <th>Status</th>
+                                    <SortTh label="Status" k="status" sortKey={sortKey} sortDir={sortDir} onClick={toggleSort} />
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {leaves.length === 0 ? (
+                                {sortedLeaves.length === 0 ? (
                                     <tr>
                                         <td colSpan="8" className="text-center" style={{ padding: '2rem', color: 'var(--gray-500)' }}>
                                             No leave requests found
                                         </td>
                                     </tr>
                                 ) : (
-                                    leaves.map((leave) => (
+                                    sortedLeaves.map((leave) => (
                                         <tr key={leave.id}>
                                             <td>{leave.user_name}</td>
                                             <td>
@@ -253,3 +273,13 @@ const getStatusColor = (status) => {
 };
 
 export default Leaves;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const SortTh = ({ label, k, sortKey, sortDir, onClick }) => (
+    <th onClick={() => onClick(k)} style={{ cursor: 'pointer', userSelect: 'none' }} title={`Sort by ${label}`}>
+        {label}
+        <span style={{ marginLeft: '0.5rem', opacity: sortKey === k ? 1 : 0.3 }}>
+            {sortKey === k ? (sortDir === 'desc' ? '↓' : '↑') : '⇅'}
+        </span>
+    </th>
+);

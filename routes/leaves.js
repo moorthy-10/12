@@ -3,10 +3,14 @@
 const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 const Leave = require('../models/Leave');
 const User = require('../models/User');
+const CalendarEvent = require('../models/CalendarEvent');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 const notify = require('../utils/notify');
+
+
 
 // ── Shape helper ──────────────────────────────────────────────────────────────
 function shapeLeave(doc) {
@@ -49,6 +53,12 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // ── GET /api/leaves/:id ────────────────────────────────────────────────────────
 router.get('/:id', authenticateToken, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     try {
         const doc = await Leave.findById(req.params.id).populate(POP);
         if (!doc) return res.status(404).json({ success: false, message: 'Leave request not found' });
@@ -97,6 +107,12 @@ router.put('/:id', authenticateToken, [
     body('days').optional().isInt({ min: 1 }),
     body('reason').optional().notEmpty().trim()
 ], async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
@@ -136,6 +152,12 @@ router.put('/:id/review', authenticateToken, isAdmin, [
     body('status').isIn(['approved', 'rejected']),
     body('review_notes').optional().trim()
 ], async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
@@ -168,6 +190,27 @@ router.put('/:id/review', authenticateToken, isAdmin, [
             relatedId: doc._id.toString()
         });
 
+        // ── Calendar Sync ──
+        if (status === 'approved') {
+            // Create calendar event
+            await CalendarEvent.findOneAndUpdate(
+                { linkedLeaveId: doc._id },
+                {
+                    title: `${doc.user.name} - On Leave`,
+                    event_type: 'leave',
+                    start_date: doc.start_date,
+                    end_date: doc.end_date,
+                    created_by: req.user.id,
+                    linkedLeaveId: doc._id,
+                    description: `Approved leave: ${doc.leave_type}. Reason: ${doc.reason}`
+                },
+                { upsert: true, new: true }
+            );
+        } else if (status === 'rejected') {
+            // Remove calendar event if it exists
+            await CalendarEvent.findOneAndDelete({ linkedLeaveId: doc._id });
+        }
+
         res.json({ success: true, message: `Leave request ${status} successfully`, leave: shapeLeave(doc) });
     } catch (error) {
         console.error('PUT /leaves/:id/review error:', error);
@@ -177,6 +220,12 @@ router.put('/:id/review', authenticateToken, isAdmin, [
 
 // ── DELETE /api/leaves/:id ─────────────────────────────────────────────────────
 router.delete('/:id', authenticateToken, async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid ID format"
+        });
+    }
     try {
         const existing = await Leave.findById(req.params.id);
         if (!existing) return res.status(404).json({ success: false, message: 'Leave request not found' });
@@ -188,6 +237,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Cannot delete a reviewed leave request' });
         }
 
+        await CalendarEvent.findOneAndDelete({ linkedLeaveId: req.params.id });
         await Leave.findByIdAndDelete(req.params.id);
         res.json({ success: true, message: 'Leave request deleted successfully' });
     } catch (error) {

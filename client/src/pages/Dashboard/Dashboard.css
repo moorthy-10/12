@@ -335,3 +335,68 @@
         font-size: 1.125rem;
     }
 }
+
+/* ── Analytics Grid ────────────────────────────────────────────────────── */
+.analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.analytics-card {
+    background: white;
+    padding: 1rem;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border: 1px solid var(--gray-100);
+}
+
+.analytics-icon {
+    font-size: 1.25rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+}
+
+.analytics-content {
+    flex: 1;
+}
+
+.analytics-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--gray-900);
+}
+
+.analytics-label {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    font-weight: 500;
+}
+
+.analytics-card-green .analytics-icon {
+    background: #f0fdf4;
+    color: #16a34a;
+}
+
+.analytics-card-pink .analytics-icon {
+    background: #fdf2f8;
+    color: #ec4899;
+}
+
+.analytics-card-blue .analytics-icon {
+    background: #eff6ff;
+    color: #3b82f6;
+}
+
+.analytics-card-orange .analytics-icon {
+    background: #fff7ed;
+    color: #ea580c;
+}

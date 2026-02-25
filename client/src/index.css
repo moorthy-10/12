@@ -96,15 +96,18 @@ code {
 
 /* Button Styles */
 .btn {
+  min-height: 44px;
+  /* Touch target minimum */
   padding: 0.625rem 1.25rem;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
   border-radius: var(--radius);
   border: none;
   cursor: pointer;
   transition: var(--transition);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   text-decoration: none;
   white-space: nowrap;
@@ -542,6 +545,28 @@ code {
   gap: 1rem;
 }
 
+/* Form group full width and stacking on mobile */
+.form-group {
+  width: 100%;
+  margin-bottom: 1.25rem;
+}
+
+@media (max-width: 639px) {
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+  }
+}
+
 @media (min-width: 640px) {
   .responsive-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -560,6 +585,13 @@ code {
   -webkit-overflow-scrolling: touch;
   border-radius: var(--radius-lg);
   border: 1px solid var(--gray-200);
+  background: linear-gradient(to right, white 30%, rgba(255, 255, 255, 0)),
+    linear-gradient(to right, rgba(255, 255, 255, 0), white 70%) 0 100%,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, .2), rgba(0, 0, 0, 0)),
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, .2), rgba(0, 0, 0, 0)) 0 100%;
+  background-repeat: no-repeat;
+  background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+  background-attachment: local, local, scroll, scroll;
 }
 
 /* Form group full width */
