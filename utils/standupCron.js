@@ -12,6 +12,7 @@ const Standup = require('../models/Standup');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const { sendPushNotification } = require('../services/pushService');
+const { sendPushToMultipleUsers } = require('../services/notificationService');
 
 // Memory guard: set of date strings already notified this process lifecycle
 const notifiedDates = new Set();
@@ -111,10 +112,42 @@ async function sendRemindersToMissing() {
 }
 
 /**
+ * sendDailyStandupReminders
+ * Logic: Every day at 9:00 AM IST, send a push reminder to submit daily standup.
+ * Target: All active employees.
+ */
+async function sendDailyStandupReminders() {
+    console.log('[StandupCron] Running 9:00 AM daily standup reminders...');
+    try {
+        const employees = await User.find({ role: 'employee', status: 'active' }).select('_id');
+        const employeeIds = employees.map(e => e._id.toString());
+
+        if (employeeIds.length > 0) {
+            await sendPushToMultipleUsers(
+                employeeIds,
+                'Daily Standup Reminder',
+                'Submit your daily standup',
+                { type: 'STANDUP_REMINDER' }
+            );
+            console.log(`[StandupCron] Sent daily standup reminders to ${employeeIds.length} employees.`);
+        }
+    } catch (err) {
+        console.error('[StandupCron] Error in sendDailyStandupReminders:', err);
+    }
+}
+
+
+/**
  * Register the cron schedule.
  * Called once from server.js after DB is connected.
  */
 function initStandupCron() {
+    // '0 9 * * *' = every day at 9:00 AM — Initial Push Reminder
+    cron.schedule('0 9 * * *', sendDailyStandupReminders, {
+        timezone: 'Asia/Kolkata',
+        name: 'standupDailyReminder9AM'
+    });
+
     // '0 10 * * *' = every day at 10:00 AM — Admin Summary
     cron.schedule('0 10 * * *', sendStandupSummary, {
         timezone: 'Asia/Kolkata',
@@ -133,7 +166,7 @@ function initStandupCron() {
         name: 'standupReminder5PM'
     });
 
-    console.log('[StandupCron] Cron jobs scheduled: 10AM (Summary), 11AM (Reminder), 5PM (Final Reminder) IST.');
+    console.log('[StandupCron] Cron jobs scheduled: 9AM (Push), 10AM (Summary), 11AM (Reminder), 5PM (Final) IST.');
 }
 
-module.exports = { initStandupCron, sendStandupSummary, sendRemindersToMissing };
+module.exports = { initStandupCron, sendStandupSummary, sendRemindersToMissing, sendDailyStandupReminders };

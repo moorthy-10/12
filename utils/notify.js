@@ -1,6 +1,6 @@
 'use strict';
 
-const Notification = require('../models/Notification');
+const { saveNotification } = require('../services/notificationService');
 const { sendPushNotification } = require('../services/pushService');
 
 /**
@@ -10,22 +10,26 @@ const { sendPushNotification } = require('../services/pushService');
  * @param {object} io  - Socket.IO server instance (may be null)
  * @param {object} opts
  * @param {string} opts.userId    - Target user's MongoDB ID string
- * @param {string} opts.type      - 'chat' | 'task' | 'leave' | 'attendance'
+ * @param {string} opts.type
  * @param {string} opts.title
  * @param {string} opts.message
  * @param {string} [opts.relatedId]
+ * @param {string} [opts.relatedModel]
+ * @param {string} [opts.priority]
  */
-async function notify(io, { userId, type, title, message, relatedId }) {
+async function notify(io, { userId, type, title, message, relatedId, relatedModel, priority }) {
     try {
-        const doc = await Notification.create({
-            user: userId,
+        const doc = await saveNotification({
+            userId,
             type,
             title,
             message,
-            related_id: relatedId || null,
+            relatedId,
+            relatedModel,
+            priority
         });
 
-        if (io) {
+        if (io && doc) {
             const payload = {
                 id: doc._id.toString(),
                 user_id: userId,

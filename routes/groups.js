@@ -9,6 +9,7 @@ const Group = require('../models/Group');
 const ChatMessage = require('../models/ChatMessage');
 const User = require('../models/User');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
+const { sendPushToMultipleUsers, sendPushToGroup } = require('../services/notificationService');
 
 // ── Multer Setup ──────────────────────────────────────────────────────────────
 const ALLOWED_MIME_TYPES = [
@@ -188,6 +189,23 @@ router.post('/:id/files', authenticateToken, async (req, res) => {
 
                 const io = req.app.get('io');
                 if (io) io.to(`group:${req.params.id}`).emit('receive-message', message);
+
+                // Trigger Push Notification to all other members
+                try {
+                    const groupDoc = await Group.findById(req.params.id).select('members');
+                    const otherMemberIds = groupDoc.members
+                        .filter(m => m.toString() !== req.user.id)
+                        .map(m => m.toString());
+
+                    if (otherMemberIds.length > 0) {
+                        sendPushToGroup(req.params.id, otherMemberIds, 'New Group Message', `${req.user.name || 'Someone'}: ${content}`, {
+                            type: 'GROUP_MESSAGE',
+                            groupId: req.params.id
+                        });
+                    }
+                } catch (pushErr) {
+                    console.error('Group file push error:', pushErr.message);
+                }
 
                 res.status(201).json({ success: true, message });
             } catch (dbErr) {

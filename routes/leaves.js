@@ -9,6 +9,7 @@ const User = require('../models/User');
 const CalendarEvent = require('../models/CalendarEvent');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 const notify = require('../utils/notify');
+const { sendPushToUser, sendPushToMultipleUsers } = require('../services/notificationService');
 
 
 
@@ -92,6 +93,21 @@ router.post('/', authenticateToken, [
             user: req.user.id, leave_type, start_date, end_date, days, reason
         });
         const doc = await Leave.findById(created._id).populate(POP);
+
+        // Trigger Push to all Admins (non-blocking)
+        try {
+            const admins = await User.find({ role: 'admin', status: 'active' }).select('_id');
+            const adminIds = admins.map(a => a._id.toString());
+            const employeeName = req.user.name || 'An employee';
+
+            sendPushToMultipleUsers(adminIds, 'New Leave Request', `${employeeName} submitted a leave request`, {
+                type: 'LEAVE_REQUEST',
+                leaveId: doc._id.toString()
+            });
+        } catch (pushErr) {
+            console.error('Leave submission push error:', pushErr.message);
+        }
+
         res.status(201).json({ success: true, message: 'Leave request created successfully', leave: shapeLeave(doc) });
     } catch (error) {
         console.error('POST /leaves error:', error);
@@ -188,6 +204,16 @@ router.put('/:id/review', authenticateToken, isAdmin, [
             title: `${emoji} Leave Request ${status.charAt(0).toUpperCase() + status.slice(1)}`,
             message: `Your leave request (${doc.leave_type}, ${doc.start_date} – ${doc.end_date}) has been ${status}.${review_notes ? ` Note: ${review_notes}` : ''}`,
             relatedId: doc._id.toString()
+        });
+
+        // Trigger Push Notification
+        const pushTitle = status === 'approved' ? 'Leave Approved' : 'Leave Rejected';
+        const pushBody = status === 'approved' ? 'Your leave request has been approved' : 'Your leave request has been rejected';
+        const pushType = status === 'approved' ? 'LEAVE_APPROVED' : 'LEAVE_REJECTED';
+
+        sendPushToUser(doc.user._id.toString(), pushTitle, pushBody, {
+            type: pushType,
+            leaveId: doc._id.toString()
         });
 
         // ── Calendar Sync ──

@@ -109,6 +109,7 @@ const io = new Server(httpServer, {
 
 // Make io accessible to route handlers (e.g. file upload emits)
 app.set('io', io);
+global.io = io; // Added for global access in services
 
 // Attach Socket.io event handlers
 const initSocket = require('./socket/index');

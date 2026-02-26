@@ -47,7 +47,7 @@ router.put('/:id/read', authenticateToken, async (req, res) => {
     try {
         const notif = await Notification.findOneAndUpdate(
             { _id: req.params.id, user: req.user.id },
-            { $set: { is_read: true } },
+            { $set: { is_read: true, read_at: new Date() } },
             { new: true }
         );
         if (!notif) return res.status(404).json({ success: false, message: 'Notification not found' });
@@ -61,7 +61,10 @@ router.put('/:id/read', authenticateToken, async (req, res) => {
 // ── PUT /api/notifications/read-all ──────────────────────────────────────────
 router.put('/read-all', authenticateToken, async (req, res) => {
     try {
-        await Notification.updateMany({ user: req.user.id, is_read: false }, { $set: { is_read: true } });
+        await Notification.updateMany(
+            { user: req.user.id, is_read: false },
+            { $set: { is_read: true, read_at: new Date() } }
+        );
         res.json({ success: true, message: 'All notifications marked as read' });
     } catch (error) {
         console.error('PUT /notifications/read-all error:', error);

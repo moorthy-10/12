@@ -6,6 +6,7 @@ const ChatMessage = require('../models/ChatMessage');
 const PrivateMessage = require('../models/PrivateMessage');
 const User = require('../models/User');
 const notify = require('../utils/notify');
+const { sendPushToMultipleUsers, sendPushToGroup } = require('../services/notificationService');
 
 /**
  * Initialize Socket.io with JWT authentication and chat events.
@@ -31,6 +32,7 @@ function initSocket(io) {
 
         // Auto-join personal inbox room
         socket.join(`user:${socket.user.id}`);
+        socket.join(socket.user.id.toString()); // Support direct userId room for notifications
 
         // ── join-group ──────────────────────────────────────────────────────
         socket.on('join-group', async ({ groupId }, callback) => {
@@ -98,13 +100,24 @@ function initSocket(io) {
                     const groupName = group.name || 'a group';
                     const senderName = message.sender_name || 'Someone';
 
-                    for (const memberId of otherMembers) {
+                    const otherMemberIds = otherMembers.map(m => m.toString());
+
+                    // Regular notification (Socket + DB)
+                    for (const memberId of otherMemberIds) {
                         notify(io, {
-                            userId: memberId.toString(),
+                            userId: memberId,
                             type: 'chat',
                             title: `💬 ${groupName}`,
                             message: `${senderName}: ${sanitizedContent.slice(0, 80)}${sanitizedContent.length > 80 ? '…' : ''}`,
                             relatedId: groupId
+                        });
+                    }
+
+                    // Push Notification (FCM) - Bundled for efficiency with 10s cooldown
+                    if (otherMemberIds.length > 0) {
+                        sendPushToGroup(groupId, otherMemberIds, 'New Group Message', `${senderName}: ${sanitizedContent}`, {
+                            type: 'GROUP_MESSAGE',
+                            groupId: groupId
                         });
                     }
                 } catch (notifyErr) {

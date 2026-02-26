@@ -8,6 +8,7 @@ const Task = require('../models/Task');
 const User = require('../models/User');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 const notify = require('../utils/notify');
+const { sendPushToUser } = require('../services/notificationService');
 
 
 // ── Shape helper ──────────────────────────────────────────────────────────────
@@ -102,6 +103,12 @@ router.post('/', authenticateToken, isAdmin, [
             title: '📋 New Task Assigned',
             message: `"${task.title}" has been assigned to you by ${task.assigned_by.name}.`,
             relatedId: task._id.toString()
+        });
+
+        // Trigger Push Notification
+        sendPushToUser(assigned_to, 'New Task Assigned', title, {
+            type: 'TASK_ASSIGNED',
+            taskId: task._id.toString()
         });
 
         res.status(201).json({ success: true, message: 'Task created successfully', task: shapeTask(task) });
