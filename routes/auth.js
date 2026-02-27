@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
+const { getPermissionsForRoles } = require('../config/permissions');
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post('/login', [
@@ -34,6 +35,20 @@ router.post('/login', [
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        // ── Auto-Sync Permissions on Login ────────────────────────────────────
+        const combinedRoles = [...(user.roles || [])];
+        if (user.role && !combinedRoles.includes(user.role)) {
+            combinedRoles.push(user.role);
+        }
+        const freshPerms = getPermissionsForRoles(combinedRoles);
+
+        // If permissions field is missing or different, update and save
+        if (!user.permissions || user.permissions.length !== freshPerms.length) {
+            user.permissions = freshPerms;
+            await user.save();
+            console.log(`[Auth] Synced permissions for ${user.email} on login`);
         }
 
         const token = jwt.sign(
@@ -76,6 +91,17 @@ router.get('/me', authenticateToken, async (req, res) => {
             .select('name email role roles permissions department position phone status');
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // ── Fresh Permission Sync on /me ─────────────────────────────────────
+        const combinedRoles = [...(user.roles || [])];
+        if (user.role && !combinedRoles.includes(user.role)) {
+            combinedRoles.push(user.role);
+        }
+        const freshPerms = getPermissionsForRoles(combinedRoles);
+        if (!user.permissions || user.permissions.length !== freshPerms.length) {
+            user.permissions = freshPerms;
+            await user.save();
         }
         res.json({ success: true, user });
     } catch (error) {
