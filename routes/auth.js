@@ -10,7 +10,7 @@ const { authenticateToken } = require('../middleware/auth');
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post('/login', [
-    body('email').isEmail().normalizeEmail(),
+    body('email').isEmail(),
     body('password').notEmpty()
 ], async (req, res) => {
     const errors = validationResult(req);
@@ -37,7 +37,13 @@ router.post('/login', [
         }
 
         const token = jwt.sign(
-            { id: user._id.toString(), email: user.email, role: user.role },
+            {
+                id: user._id.toString(),
+                email: user.email,
+                role: user.role,
+                roles: user.roles || [],
+                permissions: user.permissions || []
+            },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -51,6 +57,8 @@ router.post('/login', [
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                roles: user.roles || [],
+                permissions: user.permissions || [],
                 department: user.department,
                 position: user.position
             }
@@ -65,7 +73,7 @@ router.post('/login', [
 router.get('/me', authenticateToken, async (req, res) => {
     try {
         const user = await User.findById(req.user.id)
-            .select('name email role department position phone status');
+            .select('name email role roles permissions department position phone status');
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }

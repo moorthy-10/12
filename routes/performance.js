@@ -72,9 +72,25 @@ function calcMetrics(user, tasks) {
 // Employee → own performance only
 router.get('/', authenticateToken, async (req, res) => {
     try {
-        if (req.user.role === 'admin') {
-            // Fetch all non-admin users
-            const employees = await User.find({ role: 'employee' }).select('_id name email').lean();
+        const perms = req.user.permissions || [];
+        const isHrAdmin = perms.includes('VIEW_ALL_ATTENDANCE') || req.user.role === 'admin';
+        const isHr = perms.includes('VIEW_ALL_REPORTS') && !isHrAdmin;
+        const isManager = perms.includes('VIEW_TEAM_PERFORMANCE') && !isHrAdmin && !isHr;
+
+        if (isHrAdmin || isHr || isManager) {
+            const filterUsers = {};
+            if (isHr) {
+                if (req.user.department_ref) filterUsers.department_ref = req.user.department_ref;
+                else return res.status(403).json({ success: false, message: 'HR department not configured' });
+            } else if (isManager) {
+                filterUsers.reports_to = req.user.id;
+            }
+
+            // Fetch employees in scope
+            const employees = await User.find({
+                ...filterUsers,
+                role: { $ne: 'admin' }
+            }).select('_id name email').lean();
 
             // Optimization: Filter tasks by date range if provided
             const { start_date, end_date } = req.query;

@@ -2,7 +2,7 @@ import './Employees.css';
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import Modal from '../../components/Modal/Modal';
-import { userAPI, adminAPI } from '../../api/api';
+import { userAPI, adminAPI, departmentAPI } from '../../api/api';
 
 const Employees = () => {
     const [employees, setEmployees] = useState([]);
@@ -12,6 +12,25 @@ const Employees = () => {
     const [editingEmployee, setEditingEmployee] = useState(null);
     const [passwordInfo, setPasswordInfo] = useState(null); // { name, email, password }
     const [resettingId, setResettingId] = useState(null);
+    const [departments, setDepartments] = useState([]);
+    const [availableManagers, setAvailableManagers] = useState([]);
+
+    useEffect(() => {
+        fetchInitialData();
+    }, []);
+
+    const fetchInitialData = async () => {
+        try {
+            const [deptRes, managersRes] = await Promise.all([
+                departmentAPI.getAll(),
+                userAPI.getAll({ role: 'manager' }) // Simplification for demo
+            ]);
+            setDepartments(deptRes.data.departments);
+            setAvailableManagers(managersRes.data.users);
+        } catch (error) {
+            console.error('Failed to fetch initial data:', error);
+        }
+    };
 
     useEffect(() => {
         fetchEmployees();
@@ -113,8 +132,12 @@ const Employees = () => {
                             onChange={(e) => handleFilterChange('role', e.target.value)}
                         >
                             <option value="">All Roles</option>
-                            <option value="admin">Admin</option>
+                            <option value="hr_admin">HR Admin</option>
+                            <option value="hr">HR</option>
+                            <option value="manager">Manager</option>
+                            <option value="teamlead">Team Lead</option>
                             <option value="employee">Employee</option>
+                            <option value="intern">Intern</option>
                         </select>
 
                         <select
@@ -165,11 +188,15 @@ const Employees = () => {
                                             </td>
                                             <td>{employee.email}</td>
                                             <td>
-                                                <span className={`badge badge-${employee.role === 'admin' ? 'info' : 'gray'}`}>
-                                                    {employee.role}
-                                                </span>
+                                                <div className="role-badges">
+                                                    {(employee.roles && employee.roles.length > 0 ? employee.roles : [employee.role]).map(r => (
+                                                        <span key={r} className={`badge badge-${r === 'hr_admin' || r === 'admin' ? 'info' : 'gray'}`} style={{ marginRight: '4px', fontSize: '0.7rem', display: 'inline-block' }}>
+                                                            {r.replace('_', ' ')}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             </td>
-                                            <td>{employee.department || '-'}</td>
+                                            <td>{employee.department_ref?.name || employee.department || '-'}</td>
                                             <td>{employee.position || '-'}</td>
                                             <td>
                                                 <span className={`badge badge-${employee.status === 'active' ? 'success' : 'danger'}`}>
@@ -212,6 +239,8 @@ const Employees = () => {
             {showModal && (
                 <EmployeeModal
                     employee={editingEmployee}
+                    departments={departments}
+                    managers={availableManagers}
                     onClose={handleModalClose}
                     onSuccess={handleModalSuccess}
                 />
@@ -227,23 +256,34 @@ const Employees = () => {
     );
 };
 
-const EmployeeModal = ({ employee, onClose, onSuccess }) => {
+const EmployeeModal = ({ employee, departments, managers, onClose, onSuccess }) => {
     const isEditing = !!employee;
     const [formData, setFormData] = useState({
         name: employee?.name || '',
         email: employee?.email || '',
         password: '',
         role: employee?.role || 'employee',
-        department: employee?.department || '',
+        roles: employee?.roles || (employee?.role ? [employee.role] : ['employee']),
+        department_ref: employee?.department_ref?._id || employee?.department_ref || '',
         position: employee?.position || '',
         phone: employee?.phone || '',
-        status: employee?.status || 'active'
+        status: employee?.status || 'active',
+        reports_to: employee?.reports_to?._id || employee?.reports_to || '',
+        employment_type: employee?.employment_type || 'fulltime'
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value, type, checked } = e.target;
+        setFormData({ ...formData, [name]: value });
+    };
+
+    const handleRoleToggle = (role) => {
+        const newRoles = formData.roles.includes(role)
+            ? formData.roles.filter(r => r !== role)
+            : [...formData.roles, role];
+        setFormData({ ...formData, roles: newRoles });
     };
 
     const handleSubmit = async (e) => {
@@ -256,10 +296,7 @@ const EmployeeModal = ({ employee, onClose, onSuccess }) => {
                 await userAPI.update(employee.id, formData);
                 onSuccess();
             } else {
-                const response = await adminAPI.createUser({
-                    name: formData.name,
-                    email: formData.email
-                });
+                const response = await adminAPI.createUser(formData);
                 // Pass temp password back to parent so it shows in PasswordModal
                 onSuccess(
                     response.data.temporaryPassword
@@ -329,22 +366,47 @@ const EmployeeModal = ({ employee, onClose, onSuccess }) => {
                 </div>
 
                 <div className="form-group">
-                    <label className="form-label">Role *</label>
-                    <select name="role" value={formData.role} onChange={handleChange} className="form-select" required>
-                        <option value="employee">Employee</option>
-                        <option value="admin">Admin</option>
+                    <label className="form-label">Roles (Detailed Permissions) *</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '10px', background: '#f5f5f5', borderRadius: 'var(--radius)' }}>
+                        {['hr_admin', 'hr', 'manager', 'teamlead', 'intern', 'employee'].map(r => (
+                            <label key={r} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={formData.roles.includes(r)}
+                                    onChange={() => handleRoleToggle(r)}
+                                />
+                                {r.replace('_', ' ').toUpperCase()}
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="form-group">
+                    <label className="form-label">Employment Type</label>
+                    <select name="employment_type" value={formData.employment_type} onChange={handleChange} className="form-select">
+                        <option value="fulltime">Full-time</option>
+                        <option value="intern">Intern</option>
                     </select>
                 </div>
 
                 <div className="form-group">
                     <label className="form-label">Department</label>
-                    <input
-                        type="text"
-                        name="department"
-                        value={formData.department}
-                        onChange={handleChange}
-                        className="form-input"
-                    />
+                    <select name="department_ref" value={formData.department_ref} onChange={handleChange} className="form-select">
+                        <option value="">Select Department</option>
+                        {departments.map(d => (
+                            <option key={d._id} value={d._id}>{d.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="form-group">
+                    <label className="form-label">Reports To (Manager)</label>
+                    <select name="reports_to" value={formData.reports_to} onChange={handleChange} className="form-select">
+                        <option value="">None</option>
+                        {managers.map(m => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="form-group">

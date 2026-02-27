@@ -49,7 +49,14 @@ const Performance = () => {
         setError('');
         try {
             const res = await performanceAPI.get();
-            setData(res.data.performance || []);
+            const perfData = res.data.performance;
+            if (Array.isArray(perfData)) {
+                setData(perfData);
+            } else if (perfData && typeof perfData === 'object') {
+                setData([perfData]);
+            } else {
+                setData([]);
+            }
         } catch (err) {
             setError('Failed to load performance data. Please try again.');
         } finally {

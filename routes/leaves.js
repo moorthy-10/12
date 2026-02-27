@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
 const Leave = require('../models/Leave');
 const User = require('../models/User');
 const CalendarEvent = require('../models/CalendarEvent');
-const { authenticateToken, isAdmin } = require('../middleware/auth');
+const { authenticateToken, isAdmin, authorize } = require('../middleware/auth');
 const notify = require('../utils/notify');
 const { sendPushToUser, sendPushToMultipleUsers } = require('../services/notificationService');
 
@@ -36,8 +36,34 @@ router.get('/', authenticateToken, async (req, res) => {
         const { user_id, status, leave_type, start_date, end_date } = req.query;
         const filter = {};
 
-        if (req.user.role === 'employee') filter.user = req.user.id;
-        else if (user_id) filter.user = user_id;
+        const perms = req.user.permissions || [];
+        const isHrAdmin = perms.includes('APPROVE_ANY_LEAVE') || req.user.role === 'admin';
+        const isHr = perms.includes('APPROVE_DEPARTMENT_LEAVE') && !isHrAdmin;
+        const isManager = perms.includes('APPROVE_TEAM_LEAVE') && !isHrAdmin && !isHr;
+
+        if (isHrAdmin) {
+            if (user_id) filter.user = user_id;
+        } else if (isHr) {
+            const targetDept = req.user.department_ref;
+            if (!targetDept) return res.status(403).json({ success: false, message: 'HR department not configured' });
+
+            const usersInDept = await User.find({ department_ref: targetDept }).select('_id');
+            filter.user = { $in: usersInDept.map(u => u._id) };
+            if (user_id && filter.user.$in.some(id => id.toString() === user_id)) {
+                filter.user = user_id;
+            }
+        } else if (isManager) {
+            const reports = await User.find({ reports_to: req.user.id }).select('_id');
+            const reportIds = reports.map(u => u._id);
+            reportIds.push(req.user.id);
+            filter.user = { $in: reportIds };
+            if (user_id && filter.user.$in.some(id => id.toString() === user_id)) {
+                filter.user = user_id;
+            }
+        } else {
+            // Employee / Intern - Self only
+            filter.user = req.user.id;
+        }
 
         if (status) filter.status = status;
         if (leave_type) filter.leave_type = leave_type;
@@ -164,83 +190,114 @@ router.put('/:id', authenticateToken, [
 });
 
 // ── PUT /api/leaves/:id/review ─────────────────────────────────────────────────
-router.put('/:id/review', authenticateToken, isAdmin, [
+router.put('/:id/review', authenticateToken, authorize(['APPROVE_TEAM_LEAVE', 'APPROVE_DEPARTMENT_LEAVE', 'APPROVE_ANY_LEAVE']), [
     body('status').isIn(['approved', 'rejected']),
     body('review_notes').optional().trim()
 ], async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        return res.status(400).json({
-            success: false,
-            message: "Invalid ID format"
-        });
+        return res.status(400).json({ success: false, message: "Invalid ID format" });
     }
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
     const { status, review_notes } = req.body;
+    const userId = req.user.id;
+    const roles = req.user.roles || [req.user.role];
+    const perms = req.user.permissions || [];
 
     try {
-        const existing = await Leave.findById(req.params.id);
-        if (!existing) return res.status(404).json({ success: false, message: 'Leave request not found' });
-        if (existing.status !== 'pending') {
-            return res.status(400).json({ success: false, message: 'This leave request has already been reviewed' });
+        const leave = await Leave.findById(req.params.id).populate('user');
+        if (!leave) return res.status(404).json({ success: false, message: 'Leave request not found' });
+
+        if (leave.status !== 'pending') {
+            return res.status(400).json({ success: false, message: 'This leave request has already been finalized' });
         }
 
-        const doc = await Leave.findByIdAndUpdate(req.params.id, {
-            $set: {
-                status,
-                reviewed_by: req.user.id,
-                reviewed_at: new Date(),
-                review_notes: review_notes || ''
+        // Scope Enforcement
+        const isHrAdmin = perms.includes('APPROVE_ANY_LEAVE') || req.user.role === 'admin';
+        const isHr = perms.includes('APPROVE_DEPARTMENT_LEAVE') && !isHrAdmin;
+        const isManager = perms.includes('APPROVE_TEAM_LEAVE') && !isHrAdmin && !isHr;
+
+        let authorized = false;
+        if (isHrAdmin) authorized = true;
+        else if (isHr && req.user.department_ref && leave.user?.department_ref) {
+            if (req.user.department_ref.toString() === leave.user.department_ref.toString()) authorized = true;
+        } else if (isManager && leave.user?.reports_to) {
+            if (leave.user.reports_to.toString() === req.user.id) authorized = true;
+        }
+
+        if (!authorized) {
+            return res.status(403).json({ success: false, message: 'Access denied: Out of scope for your role' });
+        }
+
+        // Case 1: Rejection
+        if (status === 'rejected') {
+            leave.status = 'rejected';
+            leave.reviewed_by = userId;
+            leave.reviewed_at = new Date();
+            leave.review_notes = review_notes || 'Rejected';
+            await leave.save();
+        }
+        // Case 2: Approval
+        else {
+            if (!leave.approved_by.includes(userId)) leave.approved_by.push(userId);
+
+            const isFinalApprover = perms.includes('APPROVE_ANY_LEAVE') || perms.includes('APPROVE_DEPARTMENT_LEAVE') || req.user.role === 'admin';
+
+            if (isFinalApprover) {
+                leave.status = 'approved';
+                leave.reviewed_by = userId;
+                leave.reviewed_at = new Date();
+                leave.review_notes = review_notes || 'Final approval';
+            } else {
+                leave.review_notes = (leave.review_notes ? leave.review_notes + ' | ' : '') + 'Approved by Manager';
             }
-        }, { new: true }).populate(POP);
-
-        // Notify the employee (non-blocking)
-        const io = req.app.get('io');
-        const emoji = status === 'approved' ? '✅' : '❌';
-        notify(io, {
-            userId: doc.user._id.toString(),
-            type: 'leave',
-            title: `${emoji} Leave Request ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-            message: `Your leave request (${doc.leave_type}, ${doc.start_date} – ${doc.end_date}) has been ${status}.${review_notes ? ` Note: ${review_notes}` : ''}`,
-            relatedId: doc._id.toString()
-        });
-
-        // Trigger Push Notification
-        const pushTitle = status === 'approved' ? 'Leave Approved' : 'Leave Rejected';
-        const pushBody = status === 'approved' ? 'Your leave request has been approved' : 'Your leave request has been rejected';
-        const pushType = status === 'approved' ? 'LEAVE_APPROVED' : 'LEAVE_REJECTED';
-
-        sendPushToUser(doc.user._id.toString(), pushTitle, pushBody, {
-            type: pushType,
-            leaveId: doc._id.toString()
-        });
-
-        // ── Calendar Sync ──
-        if (status === 'approved') {
-            // Create calendar event
-            await CalendarEvent.findOneAndUpdate(
-                { linkedLeaveId: doc._id },
-                {
-                    title: `${doc.user.name} - On Leave`,
-                    event_type: 'leave',
-                    start_date: doc.start_date,
-                    end_date: doc.end_date,
-                    created_by: req.user.id,
-                    linkedLeaveId: doc._id,
-                    description: `Approved leave: ${doc.leave_type}. Reason: ${doc.reason}`
-                },
-                { upsert: true, new: true }
-            );
-        } else if (status === 'rejected') {
-            // Remove calendar event if it exists
-            await CalendarEvent.findOneAndDelete({ linkedLeaveId: doc._id });
+            await leave.save();
         }
 
-        res.json({ success: true, message: `Leave request ${status} successfully`, leave: shapeLeave(doc) });
+        const doc = await Leave.findById(leave._id).populate(POP);
+        const finalStatus = doc.status;
+
+        // Notify and Sync only if status changed from pending
+        if (finalStatus !== 'pending') {
+            const io = req.app.get('io');
+            const emoji = finalStatus === 'approved' ? '✅' : '❌';
+            notify(io, {
+                userId: doc.user._id.toString(),
+                type: 'leave',
+                title: `${emoji} Leave Request ${finalStatus.charAt(0).toUpperCase() + finalStatus.slice(1)}`,
+                message: `Your leave request has been ${finalStatus}.`,
+                relatedId: doc._id.toString()
+            });
+
+            sendPushToUser(doc.user._id.toString(), `Leave ${finalStatus}`, `Your leave request has been ${finalStatus}`, {
+                type: finalStatus === 'approved' ? 'LEAVE_APPROVED' : 'LEAVE_REJECTED',
+                leaveId: doc._id.toString()
+            });
+
+            if (finalStatus === 'approved') {
+                await CalendarEvent.findOneAndUpdate(
+                    { linkedLeaveId: doc._id },
+                    {
+                        title: `${doc.user.name} - On Leave`,
+                        event_type: 'leave',
+                        start_date: doc.start_date,
+                        end_date: doc.end_date,
+                        created_by: userId,
+                        linkedLeaveId: doc._id,
+                        description: `Approved leave. Reason: ${doc.reason}`
+                    },
+                    { upsert: true, new: true }
+                );
+            } else {
+                await CalendarEvent.findOneAndDelete({ linkedLeaveId: doc._id });
+            }
+        }
+
+        res.json({ success: true, message: `Review processed. Status: ${finalStatus}`, leave: shapeLeave(doc) });
     } catch (error) {
         console.error('PUT /leaves/:id/review error:', error);
-        res.status(500).json({ success: false, message: 'Failed to review leave request' });
+        res.status(500).json({ success: false, message: 'Server error during review' });
     }
 });
 
@@ -256,7 +313,8 @@ router.delete('/:id', authenticateToken, async (req, res) => {
         const existing = await Leave.findById(req.params.id);
         if (!existing) return res.status(404).json({ success: false, message: 'Leave request not found' });
 
-        if (req.user.role !== 'admin' && existing.user.toString() !== req.user.id) {
+        const canManage = (req.user.permissions || []).includes('MANAGE_EMPLOYEES') || req.user.role === 'admin';
+        if (!canManage && existing.user.toString() !== req.user.id) {
             return res.status(403).json({ success: false, message: 'Access denied' });
         }
         if (existing.status !== 'pending') {

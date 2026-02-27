@@ -55,6 +55,7 @@ const notificationRoutes = require('./routes/notifications');
 const performanceRoutes = require('./routes/performance');
 const standupRoutes = require('./routes/standup');
 const searchRoutes = require('./routes/search');
+const departmentRoutes = require('./routes/departments');
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -72,6 +73,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/performance', performanceRoutes);
 app.use('/api/standup', standupRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/departments', departmentRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

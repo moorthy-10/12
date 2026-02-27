@@ -14,9 +14,23 @@ const attendanceSchema = new mongoose.Schema({
     totalHours: { type: Number, default: null },
     autoClosed: { type: Boolean, default: false },
     notes: { type: String, default: '' },
+    // Manual Edit Fields
+    is_manual: { type: Boolean, default: false },
+    created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    edit_history: [
+        {
+            edited_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            old_check_in: { type: Date },
+            old_check_out: { type: Date },
+            edited_at: { type: Date, default: Date.now },
+            reason: { type: String }
+        }
+    ],
 }, { timestamps: true });
 
 attendanceSchema.index({ user: 1, date: 1 }, { unique: true });
+attendanceSchema.index({ date: 1 });
 
 // Virtual id
 attendanceSchema.virtual('id').get(function () { return this._id.toString(); });

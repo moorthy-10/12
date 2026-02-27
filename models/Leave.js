@@ -10,6 +10,7 @@ const leaveSchema = new mongoose.Schema({
     days: { type: Number, required: true, min: 1 },
     reason: { type: String, required: true, trim: true },
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    approved_by: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     reviewed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     reviewed_at: { type: Date, default: null },
     review_notes: { type: String, default: '' },

@@ -81,7 +81,11 @@ const Sidebar = ({ isOpen, onClose }) => {
                         </div>
                         <div className="user-details">
                             <div className="user-name">{user?.name}</div>
-                            <div className="user-role">{user?.role}</div>
+                            <div className="user-role">
+                                {user?.roles?.length > 0
+                                    ? user.roles[0].split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                                    : user?.role?.charAt(0).toUpperCase() + user?.role?.slice(1)}
+                            </div>
                         </div>
                     </div>
                 </div>

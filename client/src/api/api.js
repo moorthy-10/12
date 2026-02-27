@@ -71,7 +71,12 @@ export const attendanceAPI = {
         api.get('/attendance/export', {
             params: { startDate, endDate },
             responseType: 'blob'
-        })
+        }),
+    adminOverride: (data) => api.post('/attendance/admin', data),
+    getReport: (params) => api.get('/attendance/report', {
+        params,
+        responseType: params.export === 'true' ? 'blob' : 'json'
+    }),
 };
 
 // Leave APIs
@@ -164,6 +169,11 @@ export const standupAPI = {
 // Search APIs
 export const searchAPI = {
     query: (q) => api.get('/search', { params: { q } })
+};
+
+// Department APIs
+export const departmentAPI = {
+    getAll: () => api.get('/departments')
 };
 
 export default api;

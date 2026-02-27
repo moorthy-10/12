@@ -8,7 +8,8 @@ const mongoose = require('mongoose');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const CalendarEvent = require('../models/CalendarEvent');
-const { authenticateToken, isAdmin } = require('../middleware/auth');
+const { authenticateToken, isAdmin, authorize } = require('../middleware/auth');
+const attendanceController = require('../controllers/attendanceController');
 
 /* ─────────────────────────────────────────────────────────────
    Helpers: IST Date & Time
@@ -38,16 +39,50 @@ async function populate(rec) {
     return obj;
 }
 
+// ── GET /api/attendance/report ────────────────────────────────────────────────
+router.get('/report', authenticateToken, authorize(['VIEW_ALL_ATTENDANCE', 'VIEW_TEAM_ATTENDANCE', 'VIEW_REPORTS']), attendanceController.getReport);
+
+// ── POST /api/attendance/admin ────────────────────────────────────────────────
+router.post('/admin', authenticateToken, authorize(['EDIT_ANY_ATTENDANCE']), [
+    body('user_id').notEmpty().withMessage('user_id is required'),
+    body('date').isDate().withMessage('Invalid date'),
+    body('status').isIn(['present', 'absent', 'half-day', 'leave']).withMessage('Invalid status')
+], attendanceController.adminOverride);
+
+
 // ── GET /api/attendance ────────────────────────────────────────────────────────
 router.get('/', authenticateToken, async (req, res) => {
     try {
         const { user_id, start_date, end_date, status } = req.query;
         const filter = {};
 
-        if (req.user.role === 'employee') {
+        const perms = req.user.permissions || [];
+        const isHrAdmin = perms.includes('VIEW_ALL_ATTENDANCE') || req.user.role === 'admin';
+        const isHr = perms.includes('VIEW_DEPARTMENT_ATTENDANCE') && !isHrAdmin;
+        const isManager = perms.includes('VIEW_TEAM_ATTENDANCE') && !isHrAdmin && !isHr;
+
+        if (isHrAdmin) {
+            if (user_id) filter.user = user_id;
+        } else if (isHr) {
+            const targetDept = req.user.department_ref;
+            if (!targetDept) return res.status(403).json({ success: false, message: 'HR department not configured' });
+
+            const usersInDept = await User.find({ department_ref: targetDept }).select('_id');
+            filter.user = { $in: usersInDept.map(u => u._id) };
+            if (user_id && filter.user.$in.some(id => id.toString() === user_id)) {
+                filter.user = user_id;
+            }
+        } else if (isManager) {
+            const reports = await User.find({ reports_to: req.user.id }).select('_id');
+            const reportIds = reports.map(u => u._id);
+            reportIds.push(req.user.id); // View self too
+            filter.user = { $in: reportIds };
+            if (user_id && filter.user.$in.some(id => id.toString() === user_id)) {
+                filter.user = user_id;
+            }
+        } else {
+            // Employee / Intern - Self only
             filter.user = req.user.id;
-        } else if (user_id) {
-            filter.user = user_id;
         }
 
         if (start_date) filter.date = { ...filter.date, $gte: start_date };
@@ -115,8 +150,8 @@ router.get('/today', authenticateToken, async (req, res) => {
 });
 
 // ── GET /api/attendance/export/monthly ────────────────────────────────────────
-// Admin only – returns an .xlsx file
-router.get('/export/monthly', authenticateToken, isAdmin, async (req, res) => {
+// Admin/HR only – returns an .xlsx file
+router.get('/export/monthly', authenticateToken, authorize(['VIEW_ALL_ATTENDANCE', 'VIEW_REPORTS']), async (req, res) => {
     try {
         const month = parseInt(req.query.month, 10) || new Date().getMonth() + 1;
         const year = parseInt(req.query.year, 10) || new Date().getFullYear();
@@ -134,8 +169,8 @@ router.get('/export/monthly', authenticateToken, isAdmin, async (req, res) => {
 });
 
 // ── GET /api/attendance/export ────────────────────────────────────────────────
-// Admin only – supports custom date range via ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
-router.get('/export', authenticateToken, isAdmin, async (req, res) => {
+// Admin/HR only – supports custom date range via ?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+router.get('/export', authenticateToken, authorize(['VIEW_ALL_ATTENDANCE', 'VIEW_REPORTS']), async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
 

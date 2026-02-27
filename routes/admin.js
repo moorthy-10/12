@@ -42,7 +42,7 @@ router.post('/create-user', authenticateToken, isAdmin, [
         return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
     }
 
-    const { name, email } = req.body;
+    const { name, email, roles, department_ref, reports_to, employment_type } = req.body;
 
     try {
         const existingUser = await User.findOne({ email });
@@ -60,7 +60,11 @@ router.post('/create-user', authenticateToken, isAdmin, [
             name,
             email,
             password: hashedPassword,
-            role: 'employee',
+            role: (roles && roles.length > 0) ? roles[0] : 'employee',
+            roles: roles || ['employee'],
+            department_ref: department_ref === "" ? null : (department_ref || null),
+            reports_to: reports_to === "" ? null : (reports_to || null),
+            employment_type: employment_type || 'fulltime',
             status: 'active',
             forcePasswordChange: true
         });
@@ -91,7 +95,7 @@ router.post('/create-user', authenticateToken, isAdmin, [
 
         console.log('📧 Triggering n8n webhook for email notification...');
         try {
-            await axios.post(n8nWebhookUrl, { name, email, role: 'employee', temporaryPassword }, {
+            await axios.post(n8nWebhookUrl, { name, email, role: created.role, temporaryPassword }, {
                 timeout: 5000,
                 headers: { 'Content-Type': 'application/json' }
             });
