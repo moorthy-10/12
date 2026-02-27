@@ -176,5 +176,11 @@ export const departmentAPI = {
     getAll: () => api.get('/departments')
 };
 
+// Scrum APIs
+export const scrumAPI = {
+    start: (data) => api.post('/scrum/start', data),
+    join: (id) => api.post(`/scrum/join/${id}`)
+};
+
 export default api;
 

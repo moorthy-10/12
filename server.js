@@ -56,6 +56,7 @@ const performanceRoutes = require('./routes/performance');
 const standupRoutes = require('./routes/standup');
 const searchRoutes = require('./routes/search');
 const departmentRoutes = require('./routes/departments');
+const scrumRoutes = require('./routes/scrum');
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -74,6 +75,7 @@ app.use('/api/performance', performanceRoutes);
 app.use('/api/standup', standupRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/departments', departmentRoutes);
+app.use('/api/scrum', scrumRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
