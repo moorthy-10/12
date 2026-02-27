@@ -179,7 +179,8 @@ export const departmentAPI = {
 // Scrum APIs
 export const scrumAPI = {
     start: (data) => api.post('/scrum/start', data),
-    join: (id) => api.post(`/scrum/join/${id}`)
+    join: (id) => api.post(`/scrum/join/${id}`),
+    getActive: () => api.get('/scrum/active')
 };
 
 export default api;

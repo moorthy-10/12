@@ -4,10 +4,13 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import { searchAPI } from '../../api/api';
+import ScrumCallModal from '../Scrum/ScrumCallModal';
 
 const Header = ({ title, onMenuToggle }) => {
-    const { logout, isAdmin, user } = useAuth();
+    const { logout, isAdmin, user, permissions } = useAuth();
     const navigate = useNavigate();
+
+    const [scrumOpen, setScrumOpen] = useState(false);
 
     const [query, setQuery] = useState('');
     const [results, setResults] = useState(null);
@@ -122,10 +125,24 @@ const Header = ({ title, onMenuToggle }) => {
                 </div>
 
                 <div className="header-actions">
+                    {permissions.includes('START_SCRUM') && (
+                        <button
+                            className="btn btn-primary btn-sm scrum-trigger-btn"
+                            onClick={() => setScrumOpen(true)}
+                            title="Start a Scrum Call"
+                        >
+                            🚀 <span className="scrum-label">Scrum Call</span>
+                        </button>
+                    )}
                     <NotificationBell isAdmin={isAdmin} />
                     <button className="btn btn-secondary btn-sm" onClick={handleLogout}>
                         🚪 <span className="logout-label">Logout</span>
                     </button>
+
+                    <ScrumCallModal
+                        isOpen={scrumOpen}
+                        onClose={() => setScrumOpen(false)}
+                    />
                 </div>
             </div>
         </header>

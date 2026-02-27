@@ -248,3 +248,37 @@
         /* Desktop: sidebar always visible, no hamburger needed */
     }
 }
+
+/* 🚀 Scrum Call Button Styles */
+.scrum-trigger-btn {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    border: none;
+    color: white;
+    font-weight: 700;
+    padding: 0.5rem 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.2);
+}
+
+.scrum-trigger-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+    background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+}
+
+.scrum-trigger-btn:active {
+    transform: translateY(0);
+}
+
+.scrum-label {
+    display: none;
+}
+
+@media (min-width: 640px) {
+    .scrum-label {
+        display: inline;
+    }
+}

@@ -1,7 +1,7 @@
 import './Dashboard.css';
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
-import { dashboardAPI, attendanceAPI } from '../../api/api';
+import { dashboardAPI, attendanceAPI, scrumAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { FaUsers, FaUserCheck, FaCalendarCheck, FaUserClock, FaHourglassHalf, FaUmbrellaBeach, FaChartLine, FaCheckCircle, FaStar, FaExclamationTriangle, FaTasks, FaClipboardList, FaUserPlus, FaCalendarAlt } from 'react-icons/fa';
@@ -14,10 +14,22 @@ const Dashboard = () => {
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
     const [incompleteAttendance, setIncompleteAttendance] = useState(false);
+    const [activeScrums, setActiveScrums] = useState([]);
 
 
     useEffect(() => {
         fetchDashboardData();
+
+        // Live Scrum Listener
+        const socket = window.socket; // Assuming global socket or similar
+        if (socket) {
+            socket.on('SCRUM_STARTED', (data) => {
+                setActiveScrums(prev => [data, ...prev]);
+            });
+        }
+        return () => {
+            if (socket) socket.off('SCRUM_STARTED');
+        };
     }, [isAdmin]);
 
     const fetchDashboardData = async () => {
@@ -44,6 +56,14 @@ const Dashboard = () => {
 
         } catch (error) {
             console.error('Failed to fetch dashboard data:', error);
+        }
+
+        // Always fetch active scrums
+        try {
+            const scrumRes = await scrumAPI.getActive();
+            setActiveScrums(scrumRes.data.sessions);
+        } catch (err) {
+            console.error('Failed to fetch scrums:', err);
         } finally {
             setLoading(false);
         }
@@ -67,6 +87,18 @@ const Dashboard = () => {
                     <span>⚠️ Incomplete Attendance Record - Please check your previous clock-outs.</span>
                 </div>
             )}
+
+            {activeScrums.length > 0 && (
+                <div className="active-scrums-section" style={{ marginBottom: '2rem' }}>
+                    <h3 style={{ fontSize: '0.9rem', color: 'var(--gray-500)', marginBottom: '0.75rem', fontWeight: 600 }}>📡 LIVE SCRUM CALLS</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+                        {activeScrums.map(scrum => (
+                            <ActiveScrumCard key={scrum._id || scrum.sessionId} scrum={scrum} />
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {isAdmin
                 ? <AdminDashboard stats={stats} activities={activities} analytics={analytics} />
                 : <EmployeeDashboard stats={stats} analytics={analytics} />}
@@ -310,5 +342,51 @@ const AnalyticsCard = ({ label, value, icon, color }) => (
         </div>
     </div>
 );
+
+const ActiveScrumCard = ({ scrum }) => {
+    const handleJoin = async () => {
+        try {
+            await scrumAPI.join(scrum._id || scrum.sessionId);
+            window.open(scrum.meet_link, '_blank');
+        } catch (err) {
+            console.error('Join failed:', err);
+            window.open(scrum.meet_link, '_blank'); // Open anyway if join fail persistently
+        }
+    };
+
+    return (
+        <div className="active-scrum-card" style={{
+            background: 'white',
+            padding: '1.25rem',
+            borderRadius: '12px',
+            borderLeft: '4px solid #6366f1',
+            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+        }}>
+            <div>
+                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>{scrum.title}</h4>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--gray-500)' }}>
+                    Started by {scrum.started_by?.name || scrum.started_by || 'Manager'}
+                </p>
+            </div>
+            <button
+                onClick={handleJoin}
+                style={{
+                    background: '#6366f1',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                }}
+            >
+                Join Now
+            </button>
+        </div>
+    );
+};
 
 export default Dashboard;

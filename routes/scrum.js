@@ -8,6 +8,55 @@ const User = require('../models/User');
 const { authenticateToken, authorize } = require('../middleware/auth');
 const { saveNotification, sendPushToMultipleUsers } = require('../services/notificationService');
 
+// ── GET /api/scrum/active ──────────────────────────────────────────────────
+router.get('/active', authenticateToken, async (req, res) => {
+    try {
+        const perms = req.user.permissions || [];
+        const isHrAdmin = perms.includes('VIEW_ALL_ATTENDANCE') || req.user.role === 'admin';
+
+        let query = { status: 'live' };
+
+        // Scope filtering if not admin
+        if (!isHrAdmin) {
+            const userId = req.user.id;
+            const deptId = req.user.department_ref;
+            const managerId = req.user.reports_to;
+
+            // Live sessions where:
+            // 1. You are the starter
+            // 2. You are in the same department as the session (if scoped to dept)
+            // 3. The starter is your manager
+            // 4. The starter is an HR Admin (Global)
+            const starters = await User.find({
+                $or: [
+                    { _id: userId },
+                    { roles: 'hr_admin' },
+                    { role: 'admin' }
+                ]
+            }).select('_id');
+            const starterIds = starters.map(u => u._id);
+
+            query.$or = [
+                { started_by: { $in: starterIds } },
+                { department: deptId },
+                { started_by: managerId }
+            ];
+
+            // Clean up if deptId or managerId is null
+            query.$or = query.$or.filter(c => Object.values(c)[0] != null);
+        }
+
+        const sessions = await ScrumSession.find(query)
+            .populate('started_by', 'name')
+            .sort({ started_at: -1 });
+
+        res.json({ success: true, sessions });
+    } catch (error) {
+        console.error('GET /scrum/active error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch active sessions' });
+    }
+});
+
 // ── POST /api/scrum/start ───────────────────────────────────────────────────
 router.post('/start', authenticateToken, authorize(['START_SCRUM']), async (req, res) => {
     try {

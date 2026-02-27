@@ -55,6 +55,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         isAuthenticated: !!user,
+        permissions: user?.permissions || [],
         isAdmin: user?.role === 'admin' ||
             (user?.roles || []).includes('hr_admin') ||
             (user?.roles || []).includes('manager')
