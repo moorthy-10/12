@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import { dashboardAPI, attendanceAPI, scrumAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import { useChat } from '../../chat/ChatProvider';
 import { useNavigate } from 'react-router-dom';
-import { FaUsers, FaUserCheck, FaCalendarCheck, FaUserClock, FaHourglassHalf, FaUmbrellaBeach, FaChartLine, FaCheckCircle, FaStar, FaExclamationTriangle, FaTasks, FaClipboardList, FaUserPlus, FaCalendarAlt } from 'react-icons/fa';
+import { FaUsers, FaUserCheck, FaCalendarCheck, FaUserClock, FaHourglassHalf, FaUmbrellaBeach, FaChartLine, FaCheckCircle, FaStar, FaExclamationTriangle, FaTasks, FaClipboardList, FaUserPlus, FaCalendarAlt, FaRocket } from 'react-icons/fa';
+import ScrumCallModal from '../../components/Scrum/ScrumCallModal';
 
 
 const Dashboard = () => {
@@ -15,22 +17,30 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [incompleteAttendance, setIncompleteAttendance] = useState(false);
     const [activeScrums, setActiveScrums] = useState([]);
+    const [scrumOpen, setScrumOpen] = useState(false);
+    const { permissions } = useAuth();
 
+
+    const { socket } = useChat();
 
     useEffect(() => {
         fetchDashboardData();
 
         // Live Scrum Listener
-        const socket = window.socket; // Assuming global socket or similar
         if (socket) {
-            socket.on('SCRUM_STARTED', (data) => {
-                setActiveScrums(prev => [data, ...prev]);
-            });
+            const handleScrumStarted = (data) => {
+                setActiveScrums(prev => {
+                    if (prev.some(s => s._id === data.sessionId || s.sessionId === data.sessionId)) return prev;
+                    return [data, ...prev];
+                });
+            };
+
+            socket.on('SCRUM_STARTED', handleScrumStarted);
+            return () => {
+                socket.off('SCRUM_STARTED', handleScrumStarted);
+            };
         }
-        return () => {
-            if (socket) socket.off('SCRUM_STARTED');
-        };
-    }, [isAdmin]);
+    }, [isAdmin, socket]);
 
     const fetchDashboardData = async () => {
         try {
@@ -88,6 +98,26 @@ const Dashboard = () => {
                 </div>
             )}
 
+            {permissions.includes('START_SCRUM') && (
+                <div className="scrum-dashboard-action" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', padding: '1.5rem', borderRadius: '16px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.75rem', borderRadius: '12px', fontSize: '1.5rem' }}>
+                            <FaRocket />
+                        </div>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Ready for a sync?</h3>
+                            <p style={{ margin: '0.25rem 0 0', opacity: 0.9, fontSize: '0.9rem' }}>Start a scrum call and notify your entire team instantly.</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setScrumOpen(true)}
+                        style={{ background: 'white', color: '#6366f1', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '10px', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', transition: 'transform 0.2s' }}
+                    >
+                        Start Scrum Call
+                    </button>
+                </div>
+            )}
+
             {activeScrums.length > 0 && (
                 <div className="active-scrums-section" style={{ marginBottom: '2rem' }}>
                     <h3 style={{ fontSize: '0.9rem', color: 'var(--gray-500)', marginBottom: '0.75rem', fontWeight: 600 }}>📡 LIVE SCRUM CALLS</h3>
@@ -102,6 +132,11 @@ const Dashboard = () => {
             {isAdmin
                 ? <AdminDashboard stats={stats} activities={activities} analytics={analytics} />
                 : <EmployeeDashboard stats={stats} analytics={analytics} />}
+
+            <ScrumCallModal
+                isOpen={scrumOpen}
+                onClose={() => setScrumOpen(false)}
+            />
         </MainLayout>
 
     );
