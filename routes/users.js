@@ -104,7 +104,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // ── POST /api/users ────────────────────────────────────────────────────────────
 router.post('/', authenticateToken, authorize(['MANAGE_EMPLOYEES']), [
     body('name').notEmpty().trim(),
-    body('email').isEmail().normalizeEmail(),
+    body('email').trim().toLowerCase(), // Issue 4: Strict matching
     body('roles').optional().isArray()
 ], async (req, res) => {
     const errors = validationResult(req);
@@ -134,7 +134,8 @@ router.post('/', authenticateToken, authorize(['MANAGE_EMPLOYEES']), [
             position,
             phone,
             reports_to,
-            employment_type: employment_type || 'fulltime'
+            employment_type: employment_type || 'fulltime',
+            is_temp_password: true // Issue 3
         });
 
         const user = await User.findById(created._id).select('-password');

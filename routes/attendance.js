@@ -49,6 +49,11 @@ router.post('/admin', authenticateToken, authorize(['EDIT_ANY_ATTENDANCE']), [
     body('status').isIn(['present', 'absent', 'half-day', 'leave']).withMessage('Invalid status')
 ], attendanceController.adminOverride);
 
+// ── POST /api/attendance/self ─────────────────────────────────────────────────
+router.post('/self', authenticateToken, authorize(['SELF_ATTENDANCE']), [
+    body('status').optional().isIn(['present', 'absent', 'half-day', 'leave'])
+], attendanceController.selfAttendance);
+
 
 // ── GET /api/attendance ────────────────────────────────────────────────────────
 router.get('/', authenticateToken, async (req, res) => {

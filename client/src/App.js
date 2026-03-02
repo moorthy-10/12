@@ -20,6 +20,7 @@ import Performance from './pages/Performance/Performance';
 import MyPerformance from './pages/MyPerformance/MyPerformance';
 import Standup from './pages/Standup/Standup';
 import StandupAdmin from './pages/StandupAdmin/StandupAdmin';
+import ChangePassword from './pages/ChangePassword/ChangePassword';
 import { ChatProvider } from './chat/ChatProvider';
 import { NotificationProvider } from './context/NotificationProvider';
 import FloatingChatButton from './chat/FloatingChatButton';
@@ -28,7 +29,8 @@ import './chat/FloatingChat.css';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, adminOnly = false }) => {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { isAuthenticated, isAdmin, loading, user } = useAuth();
+  const location = window.location.pathname;
 
   if (loading) {
     return (
@@ -40,6 +42,14 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Issue 3: Redirect to /change-password if temp password
+  const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const requireChange = storedUser.is_temp_password || user?.is_temp_password;
+
+  if (requireChange && location !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
   }
 
   if (adminOnly && !isAdmin) {
@@ -210,6 +220,15 @@ function AppRoutes() {
         }
       />
 
+      <Route
+        path="/change-password"
+        element={
+          <ProtectedRoute>
+            <ChangePassword />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Default Route */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -218,9 +237,25 @@ function AppRoutes() {
 }
 const PushManager = () => {
   const { isAuthenticated } = useAuth();
+  const ringtoneRef = React.useRef(null);
+
+  const stopRingtone = () => {
+    if (ringtoneRef.current) {
+      ringtoneRef.current.pause();
+      ringtoneRef.current.currentTime = 0;
+      ringtoneRef.current = null;
+    }
+  };
+
+  const playSound = (soundFile, loop = false) => {
+    stopRingtone(); // Stop any existing sound
+    const audio = new Audio(`/assets/sounds/${soundFile}.mp3`); // Assuming files are also in public assets for foreground
+    audio.loop = loop;
+    audio.play().catch(err => console.error("Sound play failed:", err));
+    ringtoneRef.current = audio;
+  };
 
   useEffect(() => {
-
     // 🔴 Do NOT run push on web (Vercel fix)
     if (Capacitor.getPlatform() === 'web') {
       console.log('Push disabled on web');
@@ -264,7 +299,21 @@ const PushManager = () => {
     // Foreground notification
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
       console.log('Push received:', notification);
+
+      const type = notification.data?.type;
+
+      if (type === 'CALL_RINGING') {
+        playSound('call_ringtone', true);
+      } else if (['CALL_ACCEPTED', 'CALL_DECLINED', 'CALL_CANCELLED'].includes(type)) {
+        stopRingtone();
+      } else {
+        playSound('notification_sound', false);
+      }
     });
+
+    return () => {
+      stopRingtone();
+    };
 
   }, [isAuthenticated]);
 

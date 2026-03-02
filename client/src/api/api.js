@@ -26,11 +26,32 @@ api.interceptors.request.use(
 // Handle response errors
 api.interceptors.response.use(
     (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
+    async (error) => {
+        const originalRequest = error.config;
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+            const refreshToken = localStorage.getItem('refreshToken');
+
+            if (refreshToken) {
+                try {
+                    const response = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+                    const { token } = response.data;
+                    localStorage.setItem('token', token);
+                    originalRequest.headers.Authorization = `Bearer ${token}`;
+                    return api(originalRequest);
+                } catch (refreshError) {
+                    console.error('Refresh token failed:', refreshError);
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('refreshToken');
+                    localStorage.removeItem('user');
+                    window.location.href = '/login';
+                }
+            } else {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+            }
         }
         return Promise.reject(error);
     }
@@ -40,7 +61,8 @@ api.interceptors.response.use(
 export const authAPI = {
     login: (credentials) => api.post('/auth/login', credentials),
     getCurrentUser: () => api.get('/auth/me'),
-    changePassword: (data) => api.put('/auth/change-password', data)
+    changePassword: (data) => api.put('/auth/change-password', data),
+    refresh: (refreshToken) => api.post('/auth/refresh', { refreshToken })
 };
 
 // User APIs
@@ -73,6 +95,7 @@ export const attendanceAPI = {
             responseType: 'blob'
         }),
     adminOverride: (data) => api.post('/attendance/admin', data),
+    selfUpdate: (data) => api.post('/attendance/self', data),
     getReport: (params) => api.get('/attendance/report', {
         params,
         responseType: params.export === 'true' ? 'blob' : 'json'

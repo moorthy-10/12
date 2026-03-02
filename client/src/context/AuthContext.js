@@ -28,6 +28,7 @@ export const AuthProvider = ({ children }) => {
             } catch (error) {
                 console.error('Auth check failed:', error);
                 localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
                 localStorage.removeItem('user');
             }
         }
@@ -36,8 +37,9 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (credentials) => {
         const response = await authAPI.login(credentials);
-        const { token, user } = response.data;
+        const { token, refreshToken, user } = response.data;
         localStorage.setItem('token', token);
+        if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
         localStorage.setItem('user', JSON.stringify(user));
         setUser(user);
         return response;
@@ -45,6 +47,7 @@ export const AuthProvider = ({ children }) => {
 
     const logout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         setUser(null);
     };

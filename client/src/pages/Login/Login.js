@@ -84,17 +84,6 @@ const Login = () => {
                     </form>
 
                     <div className="login-footer">
-                        <div className="demo-credentials">
-                            <p className="demo-title">Demo Credentials:</p>
-                            <div className="demo-items">
-                                <div className="demo-item">
-                                    <strong>Admin:</strong> admin@genlab.com / admin123
-                                </div>
-                                <div className="demo-item">
-                                    <strong>Employee:</strong> demo@genlab.com / demo123
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

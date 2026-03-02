@@ -21,6 +21,11 @@ async function sendPushNotification(userId, title, body, data = {}) {
             return;
         }
 
+        // Determine channel and sound based on notification type
+        const isCall = data.type === 'CALL_RINGING';
+        const channelId = isCall ? 'call_channel' : 'default_channel';
+        const soundName = isCall ? 'call_ringtone' : 'notification_sound';
+
         const message = {
             notification: {
                 title: title,
@@ -30,12 +35,20 @@ async function sendPushNotification(userId, title, body, data = {}) {
                 ...data,
                 click_action: 'FLUTTER_NOTIFICATION_CLICK' // For mobile app handlers
             },
+            android: {
+                priority: isCall ? 'high' : 'normal',
+                notification: {
+                    channelId: channelId,
+                    sound: soundName,
+                    priority: isCall ? 'high' : 'default'
+                }
+            },
             token: user.fcmToken
         };
 
         try {
             await admin.messaging().send(message);
-            console.log(`✅ Push notification sent to user ${userId}`);
+            console.log(`✅ Push notification sent to user ${userId} (Type: ${data.type || 'default'})`);
         } catch (error) {
             console.error(`❌ Push notification failed for user ${userId}:`, error.message);
 

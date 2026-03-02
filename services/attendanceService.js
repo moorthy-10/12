@@ -10,9 +10,7 @@ const mongoose = require('mongoose');
  */
 async function adminOverrideAttendance({ adminId, user_id, date, status, check_in, check_out, reason }) {
     try {
-        // Ensure user_id is a string if an object was passed
         const targetUserId = (typeof user_id === 'object' && user_id._id) ? user_id._id : user_id;
-
         const existing = await Attendance.findOne({ user: targetUserId, date });
 
         const updateData = {
@@ -22,27 +20,19 @@ async function adminOverrideAttendance({ adminId, user_id, date, status, check_i
             notes: reason || ''
         };
 
-        // Convert string times/dates to proper Date objects if provided
         if (check_in) {
             updateData.clockIn = new Date(check_in);
             updateData.check_in_time = new Date(check_in).toLocaleTimeString('en-GB', {
-                timeZone: 'Asia/Kolkata',
-                hour12: false,
-                hour: '2-digit',
-                minute: '2-digit'
+                timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit'
             });
         }
         if (check_out) {
             updateData.clockOut = new Date(check_out);
             updateData.check_out_time = new Date(check_out).toLocaleTimeString('en-GB', {
-                timeZone: 'Asia/Kolkata',
-                hour12: false,
-                hour: '2-digit',
-                minute: '2-digit'
+                timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit'
             });
         }
 
-        // Calculate totalHours if both are available
         if (updateData.clockIn && updateData.clockOut) {
             const diffMs = updateData.clockOut - updateData.clockIn;
             if (diffMs > 0) {
@@ -50,27 +40,37 @@ async function adminOverrideAttendance({ adminId, user_id, date, status, check_i
             }
         }
 
-        if (existing) {
-            // Track history
-            const historyEntry = {
-                edited_by: adminId,
-                old_check_in: existing.clockIn,
-                old_check_out: existing.clockOut,
-                edited_at: new Date(),
-                reason: reason || 'Manual adjustment'
-            };
+        const historyEntry = {
+            edited_by: adminId,
+            old_check_in: existing ? existing.clockIn : null,
+            old_check_out: existing ? existing.clockOut : null,
+            edited_at: new Date(),
+            reason: reason || 'Admin override'
+        };
 
-            return await Attendance.findByIdAndUpdate(existing._id, {
+        return await Attendance.findOneAndUpdate(
+            { user: targetUserId, date },
+            {
                 $set: updateData,
                 $push: { edit_history: historyEntry }
-            }, { new: true });
-        } else {
-            // New record
-            updateData.user = targetUserId;
-            updateData.date = date;
-            updateData.created_by = adminId;
-            return await Attendance.create(updateData);
-        }
+            },
+            { new: true, upsert: true }
+        );
+    } catch (error) {
+        throw error;
+    }
+}
+
+/**
+ * Self Update Logic
+ */
+async function selfUpdateAttendance({ userId, date, updateData }) {
+    try {
+        return await Attendance.findOneAndUpdate(
+            { user: userId, date },
+            { $set: updateData },
+            { new: true, upsert: true }
+        );
     } catch (error) {
         throw error;
     }
@@ -208,5 +208,6 @@ async function streamAttendanceExcel(res, filter, start, end) {
 
 module.exports = {
     adminOverrideAttendance,
+    selfUpdateAttendance,
     generateAttendanceReport
 };

@@ -2,6 +2,7 @@
 
 const ROLE_PERMISSIONS = {
     hr_admin: [
+        "SELF_ATTENDANCE",
         "MANAGE_EMPLOYEES",
         "EDIT_ANY_ATTENDANCE",
         "VIEW_ALL_ATTENDANCE",
@@ -14,6 +15,7 @@ const ROLE_PERMISSIONS = {
         "JOIN_SCRUM"
     ],
     hr: [
+        "SELF_ATTENDANCE",
         "MANAGE_EMPLOYEES",
         "VIEW_DEPARTMENT_ATTENDANCE",
         "APPROVE_DEPARTMENT_LEAVE",
@@ -22,6 +24,7 @@ const ROLE_PERMISSIONS = {
         "JOIN_SCRUM"
     ],
     manager: [
+        "SELF_ATTENDANCE",
         "VIEW_TEAM_ATTENDANCE",
         "APPROVE_TEAM_LEAVE",
         "ASSIGN_TASK",
@@ -30,6 +33,7 @@ const ROLE_PERMISSIONS = {
         "JOIN_SCRUM"
     ],
     teamlead: [
+        "SELF_ATTENDANCE",
         "VIEW_TEAM_ATTENDANCE",
         "ASSIGN_TASK",
         "START_SCRUM",
@@ -43,6 +47,7 @@ const ROLE_PERMISSIONS = {
     ],
     // Legacy admin mapping
     admin: [
+        "SELF_ATTENDANCE",
         "MANAGE_EMPLOYEES",
         "EDIT_ANY_ATTENDANCE",
         "VIEW_ALL_ATTENDANCE",

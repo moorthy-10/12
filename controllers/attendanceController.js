@@ -82,7 +82,60 @@ async function getReport(req, res) {
     }
 }
 
+/**
+ * POST /api/attendance/self
+ * - Requires SELF_ATTENDANCE
+ * - Only today's attendance
+ */
+async function selfAttendance(req, res) {
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+    const { status, check_in, check_out, notes } = req.body;
+
+    try {
+        const updateData = {
+            status: status || 'present',
+            notes: notes || ''
+        };
+
+        if (check_in) {
+            updateData.clockIn = new Date(check_in);
+            updateData.check_in_time = new Date(check_in).toLocaleTimeString('en-GB', {
+                timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit'
+            });
+        }
+        if (check_out) {
+            updateData.clockOut = new Date(check_out);
+            updateData.check_out_time = new Date(check_out).toLocaleTimeString('en-GB', {
+                timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        // Validate check_in < check_out
+        if (updateData.clockIn && updateData.clockOut && updateData.clockIn >= updateData.clockOut) {
+            return res.status(400).json({ success: false, message: 'Check-in must be before check-out' });
+        }
+
+        // Calculate totalHours
+        if (updateData.clockIn && updateData.clockOut) {
+            const diffMs = updateData.clockOut - updateData.clockIn;
+            updateData.totalHours = parseFloat((diffMs / 3600000).toFixed(2));
+        }
+
+        const result = await attendanceService.selfUpdateAttendance({
+            userId: req.user.id,
+            date: today,
+            updateData
+        });
+
+        res.json({ success: true, message: 'Attendance updated successfully', record: result });
+    } catch (error) {
+        console.error('[SelfAttendance] Error:', error);
+        res.status(500).json({ success: false, message: error.message || 'Server error' });
+    }
+}
+
 module.exports = {
     adminOverride,
+    selfAttendance,
     getReport
 };

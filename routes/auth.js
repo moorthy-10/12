@@ -11,7 +11,7 @@ const { getPermissionsForRoles } = require('../config/permissions');
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post('/login', [
-    body('email').isEmail(),
+    body('email').trim().toLowerCase(), // Issue 4: Only trim and lowercase
     body('password').notEmpty()
 ], async (req, res) => {
     const errors = validationResult(req);
@@ -22,7 +22,7 @@ router.post('/login', [
     const { email, password } = req.body;
 
     try {
-        // Must select password explicitly (toJSON strips it)
+        // Issue 4: Exact match query
         const user = await User.findOne({ email }).select('+password');
         if (!user) {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
@@ -47,26 +47,35 @@ router.post('/login', [
         // If permissions field is missing or different, update and save
         if (!user.permissions || user.permissions.length !== freshPerms.length) {
             user.permissions = freshPerms;
-            await user.save();
-            console.log(`[Auth] Synced permissions for ${user.email} on login`);
+            // We'll save with refresh token below
         }
 
-        const token = jwt.sign(
-            {
-                id: user._id.toString(),
-                email: user.email,
-                role: user.role,
-                roles: user.roles || [],
-                permissions: user.permissions || []
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '24h' }
+        // Issue 2: Token Expiry Handling
+        const payload = {
+            id: user._id.toString(),
+            email: user.email,
+            role: user.role,
+            roles: user.roles || [],
+            permissions: user.permissions || []
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' }); // Short expiry (15m)
+        const refreshToken = jwt.sign(
+            { id: user._id.toString() },
+            process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET,
+            { expiresIn: '7d' } // Longer expiry (7d)
         );
+
+        // Store refresh token
+        user.refresh_token = refreshToken;
+        await user.save();
 
         res.json({
             success: true,
             message: 'Login successful',
             token,
+            refreshToken,
+            requirePasswordChange: user.is_temp_password === true, // Issue 3
             user: {
                 id: user._id.toString(),
                 name: user.name,
@@ -81,6 +90,35 @@ router.post('/login', [
     } catch (error) {
         console.error('Login error:', error);
         res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
+
+// ── POST /api/auth/refresh ───────────────────────────────────────────────────
+router.post('/refresh', async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(401).json({ success: false, message: 'Refresh token required' });
+
+    try {
+        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id);
+
+        if (!user || user.refresh_token !== refreshToken) {
+            return res.status(403).json({ success: false, message: 'Invalid refresh token' });
+        }
+
+        const payload = {
+            id: user._id.toString(),
+            email: user.email,
+            role: user.role,
+            roles: user.roles || [],
+            permissions: user.permissions || []
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
+        res.json({ success: true, token });
+    } catch (err) {
+        console.error('Refresh token error:', err.message);
+        res.status(403).json({ success: false, message: 'Invalid or expired refresh token' });
     }
 });
 
@@ -134,6 +172,7 @@ router.put('/change-password', authenticateToken, [
         }
 
         user.password = await bcrypt.hash(newPassword, 10);
+        user.is_temp_password = false; // Issue 3
         await user.save();
 
         res.json({ success: true, message: 'Password updated successfully' });

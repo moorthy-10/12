@@ -17,6 +17,8 @@ const userSchema = new mongoose.Schema({
     phone: { type: String, trim: true, default: '' },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     forcePasswordChange: { type: Boolean, default: false },
+    is_temp_password: { type: Boolean, default: false },
+    refresh_token: { type: String, default: null },
     fcmToken: { type: String, default: null },
 }, { timestamps: true });
 
