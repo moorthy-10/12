@@ -1,8 +1,10 @@
-import './Employees.css';
 import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import Modal from '../../components/Modal/Modal';
 import { userAPI, adminAPI, departmentAPI } from '../../api/api';
+import ModernSuccessToast from '../../components/Common/ModernSuccessToast';
+import AnimatedButton from '../../components/Common/AnimatedButton';
+import './Employees.css';
 
 const Employees = () => {
     const [employees, setEmployees] = useState([]);
@@ -12,6 +14,7 @@ const Employees = () => {
     const [editingEmployee, setEditingEmployee] = useState(null);
     const [passwordInfo, setPasswordInfo] = useState(null); // { name, email, password }
     const [resettingId, setResettingId] = useState(null);
+    const [showSuccess, setShowSuccess] = useState(false);
     const [departments, setDepartments] = useState([]);
     const [availableManagers, setAvailableManagers] = useState([]);
 
@@ -82,6 +85,8 @@ const Employees = () => {
         handleModalClose();
         if (tempPasswordData) {
             setPasswordInfo(tempPasswordData);
+        } else {
+            setShowSuccess(true);
         }
     };
 
@@ -120,7 +125,7 @@ const Employees = () => {
                         <input
                             type="text"
                             className="form-input"
-                            placeholder="🔍 Search by name, email..."
+                            placeholder="Search by name, email..."
                             value={filters.search}
                             onChange={(e) => handleFilterChange('search', e.target.value)}
                             style={{ minWidth: '250px' }}
@@ -151,10 +156,15 @@ const Employees = () => {
                         </select>
                     </div>
 
-                    <button className="btn btn-primary" onClick={handleAddEmployee}>
-                        ➕ Add Employee
-                    </button>
+                    <AnimatedButton className="btn btn-primary" onClick={handleAddEmployee}>
+                        Add Employee
+                    </AnimatedButton>
                 </div>
+                <ModernSuccessToast
+                    isVisible={showSuccess}
+                    message="Employee record updated successfully"
+                    onClose={() => setShowSuccess(false)}
+                />
 
                 <div className="card">
                     <div className="table-container">
@@ -205,26 +215,26 @@ const Employees = () => {
                                             </td>
                                             <td>
                                                 <div className="action-buttons">
-                                                    <button
+                                                    <AnimatedButton
                                                         className="btn btn-sm btn-secondary"
                                                         onClick={() => handleEditEmployee(employee)}
                                                     >
-                                                        ✏️ Edit
-                                                    </button>
-                                                    <button
+                                                        Edit
+                                                    </AnimatedButton>
+                                                    <AnimatedButton
                                                         className="btn btn-sm btn-warning"
                                                         onClick={() => handleResetPassword(employee)}
                                                         disabled={resettingId === employee.id}
                                                         title="Generate new temporary password"
                                                     >
-                                                        {resettingId === employee.id ? '⏳' : '🔑'} Reset PW
-                                                    </button>
-                                                    <button
+                                                        {resettingId === employee.id ? 'Wait...' : 'Reset PW'}
+                                                    </AnimatedButton>
+                                                    <AnimatedButton
                                                         className="btn btn-sm btn-danger"
                                                         onClick={() => handleDeleteEmployee(employee.id)}
                                                     >
-                                                        🗑️ Delete
-                                                    </button>
+                                                        Delete
+                                                    </AnimatedButton>
                                                 </div>
                                             </td>
                                         </tr>
@@ -322,9 +332,9 @@ const EmployeeModal = ({ employee, departments, managers, onClose, onSuccess }) 
                     <button className="btn btn-secondary" onClick={onClose}>
                         Cancel
                     </button>
-                    <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
+                    <AnimatedButton className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
                         {loading ? 'Saving...' : 'Save'}
-                    </button>
+                    </AnimatedButton>
                 </>
             }
         >
@@ -337,7 +347,7 @@ const EmployeeModal = ({ employee, departments, managers, onClose, onSuccess }) 
 
                 {!isEditing && (
                     <div style={{ marginBottom: '1rem', padding: '0.75rem', background: '#f0fde4', borderRadius: 'var(--radius)', color: '#3a5c00', border: '1px solid #bcf000' }}>
-                        🔑 A secure temporary password will be generated automatically and shown to you after creation.
+                        A secure temporary password will be generated automatically and shown to you after creation.
                     </div>
                 )}
 
@@ -460,12 +470,12 @@ const PasswordModal = ({ info, onClose }) => {
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2 className="modal-title">🔑 Temporary Password</h2>
+                    <h2 className="modal-title">Temporary Password</h2>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
                 <div className="modal-body">
                     <div style={{ marginBottom: '1rem', padding: '0.875rem', background: '#fff8e1', borderRadius: 'var(--radius)', border: '1px solid #ffd54f' }}>
-                        ⚠️ <strong>Share this password with the user immediately.</strong> It will not be shown again.
+                        <strong>Share this password with the user immediately.</strong> It will not be shown again.
                     </div>
 
                     <div style={{ marginBottom: '0.5rem' }}>
@@ -503,7 +513,7 @@ const PasswordModal = ({ info, onClose }) => {
                                     transition: 'all 0.2s'
                                 }}
                             >
-                                {copied ? '✓ Copied' : '📋 Copy'}
+                                {copied ? '✓ Copied' : 'Copy'}
                             </button>
                         </div>
                     </div>

@@ -31,105 +31,57 @@
 
 .stat-card {
     background: white;
-    padding: 1.25rem;
+    padding: 1.5rem;
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
     display: flex;
-    align-items: center;
-    gap: 1rem;
+    flex-direction: column;
+    justify-content: center;
     transition: var(--transition);
-    border-left: 4px solid;
+    border: 1px solid var(--gray-200);
     min-width: 0;
+    position: relative;
+    overflow: hidden;
 }
 
 .stat-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-md);
 }
 
-@media (min-width: 1024px) {
-    .stat-card {
-        padding: 1.5rem;
-        gap: 1.25rem;
-    }
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--gray-300);
 }
 
-.stat-card-blue {
-    border-color: #3b82f6;
+.stat-card-green::after {
+    background: var(--success);
 }
 
-.stat-card-green {
-    border-color: var(--success);
+.stat-card-blue::after {
+    background: var(--info);
 }
 
-.stat-card-purple {
-    border-color: var(--gray-500);
+.stat-card-orange::after {
+    background: var(--warning);
 }
 
-.stat-card-indigo {
-    border-color: var(--gray-600);
+.stat-card-purple::after {
+    background: var(--primary);
 }
 
-.stat-card-orange {
-    border-color: var(--warning);
+.stat-card-indigo::after {
+    background: var(--dark-deep);
 }
 
-.stat-card-pink {
-    border-color: var(--gray-500);
-}
-
-.stat-icon {
-    font-size: 1.5rem;
-    width: 3.5rem;
-    height: 3.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-lg);
-    flex-shrink: 0;
-    transition: var(--transition);
-}
-
-@media (min-width: 1024px) {
-    .stat-icon {
-        font-size: 1.75rem;
-        width: 4rem;
-        height: 4rem;
-    }
-}
-
-.stat-card-blue .stat-icon {
-    background: #eff6ff;
-    color: #3b82f6;
-}
-
-.stat-card-green .stat-icon {
-    background: #f0fdf4;
-    color: var(--success);
-}
-
-.stat-card-purple .stat-icon {
-    background: #faf5ff;
-    color: #a855f7;
-}
-
-.stat-card-indigo .stat-icon {
-    background: #eef2ff;
-    color: #6366f1;
-}
-
-.stat-card-orange .stat-icon {
-    background: #fff7ed;
-    color: var(--warning);
-}
-
-.stat-card-pink .stat-icon {
-    background: #fdf2f8;
-    color: #ec4899;
-}
-
-.stat-card:hover .stat-icon {
-    transform: scale(1.1);
+.stat-card-pink::after {
+    background: var(--secondary);
 }
 
 .stat-content {
@@ -346,57 +298,51 @@
 
 .analytics-card {
     background: white;
-    padding: 1rem;
+    padding: 1.25rem;
     border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-200);
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    border: 1px solid var(--gray-100);
+    flex-direction: column;
+    justify-content: center;
+    transition: var(--transition);
 }
 
-.analytics-icon {
-    font-size: 1.25rem;
-    width: 2.5rem;
-    height: 2.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius);
+.analytics-card:hover {
+    border-color: var(--primary);
 }
 
 .analytics-content {
-    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .analytics-value {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: var(--gray-900);
+    color: var(--dark-deep);
 }
 
 .analytics-label {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     color: var(--gray-500);
-    font-weight: 500;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
 }
 
-.analytics-card-green .analytics-icon {
-    background: #f0fdf4;
-    color: #16a34a;
+.analytics-card-green {
+    border-bottom: 3px solid var(--success);
 }
 
-.analytics-card-pink .analytics-icon {
-    background: #fdf2f8;
-    color: #ec4899;
+.analytics-card-pink {
+    border-bottom: 3px solid var(--secondary);
 }
 
-.analytics-card-blue .analytics-icon {
-    background: #eff6ff;
-    color: #3b82f6;
+.analytics-card-blue {
+    border-bottom: 3px solid var(--info);
 }
 
-.analytics-card-orange .analytics-icon {
-    background: #fff7ed;
-    color: #ea580c;
+.analytics-card-orange {
+    border-bottom: 3px solid var(--warning);
 }

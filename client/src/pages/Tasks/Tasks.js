@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import Modal from '../../components/Modal/Modal';
 import { taskAPI, userAPI } from '../../api/api';
+import AnimatedButton from '../../components/Common/AnimatedButton';
+import ModernSuccessToast from '../../components/Common/ModernSuccessToast';
 import '../Employees/Employees.css';
 
 const Tasks = () => {
@@ -13,6 +15,8 @@ const Tasks = () => {
     const [editingTask, setEditingTask] = useState(null);
     const [sortKey, setSortKey] = useState('due_date');
     const [sortDir, setSortDir] = useState('asc');
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
 
     const fetchTasks = useCallback(async () => {
         try {
@@ -143,10 +147,15 @@ const Tasks = () => {
                         </select>
                     </div>
 
-                    <button className="btn btn-primary" onClick={handleAddTask}>
-                        ➕ Assign Task
-                    </button>
+                    <AnimatedButton className="btn btn-primary" onClick={handleAddTask}>
+                        Assign Task
+                    </AnimatedButton>
                 </div>
+                <ModernSuccessToast
+                    isVisible={showSuccess}
+                    message={successMessage}
+                    onClose={() => setShowSuccess(false)}
+                />
 
                 <div className="card">
                     <div className="table-container">
@@ -195,18 +204,18 @@ const Tasks = () => {
                                             <td>{task.assigned_by_name}</td>
                                             <td>
                                                 <div className="action-buttons">
-                                                    <button
+                                                    <AnimatedButton
                                                         className="btn btn-sm btn-secondary"
                                                         onClick={() => handleEditTask(task)}
                                                     >
-                                                        ✏️ Edit
-                                                    </button>
-                                                    <button
+                                                        Edit
+                                                    </AnimatedButton>
+                                                    <AnimatedButton
                                                         className="btn btn-sm btn-danger"
                                                         onClick={() => handleDeleteTask(task.id)}
                                                     >
-                                                        🗑️ Delete
-                                                    </button>
+                                                        Delete
+                                                    </AnimatedButton>
                                                 </div>
                                             </td>
                                         </tr>
@@ -223,7 +232,11 @@ const Tasks = () => {
                     task={editingTask}
                     employees={employees}
                     onClose={handleModalClose}
-                    onSuccess={handleModalSuccess}
+                    onSuccess={(msg) => {
+                        setSuccessMessage(msg);
+                        setShowSuccess(true);
+                        handleModalSuccess();
+                    }}
                 />
             )}
         </MainLayout>
@@ -263,7 +276,7 @@ const TaskModal = ({ task, employees, onClose, onSuccess }) => {
                 }
                 await taskAPI.create(formData);
             }
-            onSuccess();
+            onSuccess(isEditing ? 'Task updated successfully' : 'Task assigned successfully');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to save task');
         } finally {
@@ -281,9 +294,9 @@ const TaskModal = ({ task, employees, onClose, onSuccess }) => {
                     <button className="btn btn-secondary" onClick={onClose}>
                         Cancel
                     </button>
-                    <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
+                    <AnimatedButton className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
                         {loading ? 'Saving...' : 'Save'}
-                    </button>
+                    </AnimatedButton>
                 </>
             }
         >

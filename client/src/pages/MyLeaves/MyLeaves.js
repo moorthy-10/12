@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import Modal from '../../components/Modal/Modal';
 import { leaveAPI } from '../../api/api';
+import ModernSuccessToast from '../../components/Common/ModernSuccessToast';
+import AnimatedButton from '../../components/Common/AnimatedButton';
 import '../Employees/Employees.css';
 
 const MyLeaves = () => {
     const [leaves, setLeaves] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
 
     useEffect(() => {
         fetchLeaves();
@@ -50,10 +53,15 @@ const MyLeaves = () => {
             <div className="employees-page">
                 <div className="page-header">
                     <div></div>
-                    <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-                        ➕ Request Leave
-                    </button>
+                    <AnimatedButton className="btn btn-primary" onClick={() => setShowModal(true)}>
+                        Request Leave
+                    </AnimatedButton>
                 </div>
+                <ModernSuccessToast
+                    isVisible={showSuccess}
+                    message="Leave request submitted successfully"
+                    onClose={() => setShowSuccess(false)}
+                />
 
                 <div className="card">
                     <div className="table-container">
@@ -122,6 +130,7 @@ const MyLeaves = () => {
                     onSuccess={() => {
                         fetchLeaves();
                         setShowModal(false);
+                        setShowSuccess(true);
                     }}
                 />
             )}
@@ -180,9 +189,9 @@ const LeaveRequestModal = ({ onClose, onSuccess }) => {
             footer={
                 <>
                     <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-                    <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
+                    <AnimatedButton className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
                         {loading ? 'Submitting...' : 'Submit Request'}
-                    </button>
+                    </AnimatedButton>
                 </>
             }
         >

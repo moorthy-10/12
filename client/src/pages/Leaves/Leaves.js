@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import Modal from '../../components/Modal/Modal';
 import { leaveAPI } from '../../api/api';
+import ModernSuccessToast from '../../components/Common/ModernSuccessToast';
+import AnimatedButton from '../../components/Common/AnimatedButton';
 import '../Employees/Employees.css';
 
 const Leaves = () => {
@@ -12,6 +14,7 @@ const Leaves = () => {
     const [reviewingLeave, setReviewingLeave] = useState(null);
     const [sortKey, setSortKey] = useState('start_date');
     const [sortDir, setSortDir] = useState('desc');
+    const [showSuccess, setShowSuccess] = useState(false);
 
     useEffect(() => {
         fetchLeaves();
@@ -158,6 +161,11 @@ const Leaves = () => {
                         </table>
                     </div>
                 </div>
+                <ModernSuccessToast
+                    isVisible={showSuccess}
+                    message="Leave request reviewed successfully"
+                    onClose={() => setShowSuccess(false)}
+                />
             </div>
 
             {reviewingLeave && (
@@ -167,6 +175,7 @@ const Leaves = () => {
                     onSuccess={() => {
                         fetchLeaves();
                         setReviewingLeave(null);
+                        setShowSuccess(true);
                     }}
                 />
             )}
@@ -209,9 +218,9 @@ const ReviewModal = ({ leave, onClose, onSuccess }) => {
             footer={
                 <>
                     <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-                    <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
+                    <AnimatedButton className="btn btn-primary" onClick={handleSubmit} disabled={loading}>
                         {loading ? 'Saving...' : 'Submit Review'}
-                    </button>
+                    </AnimatedButton>
                 </>
             }
         >

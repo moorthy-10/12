@@ -156,7 +156,6 @@ const AdminDashboard = ({ stats, activities, analytics }) => {
         <div className="dashboard">
             <div className="stats-grid">
                 {statCards.map((card, index) => {
-                    const IconComponent = card.icon;
                     return (
                         <div
                             key={index}
@@ -164,9 +163,6 @@ const AdminDashboard = ({ stats, activities, analytics }) => {
                             onClick={() => card.link && navigate(card.link)}
                             style={card.link ? { cursor: 'pointer' } : {}}
                         >
-                            <div className="stat-icon">
-                                <IconComponent />
-                            </div>
                             <div className="stat-content">
                                 <div className="stat-label">{card.label}</div>
                                 <div className="stat-value">{card.value}</div>
@@ -183,25 +179,21 @@ const AdminDashboard = ({ stats, activities, analytics }) => {
                     <AnalyticsCard
                         label="Tasks Completed"
                         value={analytics?.tasksCompletedWeek || 0}
-                        icon={<FaCheckCircle />}
                         color="green"
                     />
                     <AnalyticsCard
                         label="Approved Leave Days"
                         value={analytics?.totalLeaveDaysMonth || 0}
-                        icon={<FaUmbrellaBeach />}
                         color="pink"
                     />
                     <AnalyticsCard
                         label="Avg. Work Hours"
                         value={`${analytics?.avgHoursWeek || 0}h`}
-                        icon={<FaUserClock />}
                         color="blue"
                     />
                     <AnalyticsCard
                         label="Standup Rate"
                         value={`${analytics?.standupRateToday || 0}%`}
-                        icon={<FaClipboardList />}
                         color="orange"
                     />
                 </div>
@@ -216,10 +208,7 @@ const AdminDashboard = ({ stats, activities, analytics }) => {
                         ) : (
                             <div className="activities-list">
                                 {activities.map((activity, index) => (
-                                    <div key={index} className="activity-item">
-                                        <div className="activity-icon" style={{ color: getActivityColor(activity.type) }}>
-                                            {getActivityIcon(activity.type)}
-                                        </div>
+                                    <div key={index} className="activity-item" style={{ paddingLeft: '0.5rem' }}>
                                         <div className="activity-content">
                                             <div className="activity-description">
                                                 {activity.message}
@@ -255,12 +244,8 @@ const EmployeeDashboard = ({ stats, analytics }) => {
         <div className="dashboard">
             <div className="stats-grid">
                 {statCards.map((card, index) => {
-                    const IconComponent = card.icon;
                     return (
                         <div key={index} className={`stat-card stat-card-${card.color}`}>
-                            <div className="stat-icon">
-                                <IconComponent />
-                            </div>
                             <div className="stat-content">
                                 <div className="stat-label">{card.label}</div>
                                 <div className="stat-value">{card.value}</div>
@@ -276,19 +261,16 @@ const EmployeeDashboard = ({ stats, analytics }) => {
                     <AnalyticsCard
                         label="Tasks Completed"
                         value={analytics?.tasksCompletedWeek || 0}
-                        icon={<FaCheckCircle />}
                         color="green"
                     />
                     <AnalyticsCard
                         label="Leave Days"
                         value={analytics?.totalLeaveDaysMonth || 0}
-                        icon={<FaUmbrellaBeach />}
                         color="pink"
                     />
                     <AnalyticsCard
                         label="Avg. Work Hours"
                         value={`${analytics?.avgHoursWeek || 0}h`}
-                        icon={<FaUserClock />}
                         color="blue"
                     />
                 </div>
@@ -364,9 +346,8 @@ const getStatusColor = (status) => {
     return colorMap[status] || 'gray';
 };
 
-const AnalyticsCard = ({ label, value, icon, color }) => (
+const AnalyticsCard = ({ label, value, color }) => (
     <div className={`analytics-card analytics-card-${color}`}>
-        <div className="analytics-icon">{icon}</div>
         <div className="analytics-content">
             <div className="analytics-value">{value}</div>
             <div className="analytics-label">{label}</div>

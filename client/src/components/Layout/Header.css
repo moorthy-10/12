@@ -7,9 +7,8 @@
     top: 0;
     height: var(--header-height);
     background: white;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 2px solid var(--gray-100);
     z-index: 90;
-    box-shadow: var(--shadow-sm);
     transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -249,24 +248,23 @@
     }
 }
 
-/* 🚀 Scrum Call Button Styles */
+/* Scrum Call Button Styles */
 .scrum-trigger-btn {
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    background: var(--primary);
     border: none;
-    color: white;
+    color: var(--primary-text);
     font-weight: 700;
-    padding: 0.5rem 0.875rem;
+    padding: 0.5rem 1rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.2);
+    transition: var(--transition);
+    border-radius: var(--radius);
 }
 
 .scrum-trigger-btn:hover {
+    background: var(--primary-hover);
     transform: translateY(-1px);
-    box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
-    background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
 }
 
 .scrum-trigger-btn:active {

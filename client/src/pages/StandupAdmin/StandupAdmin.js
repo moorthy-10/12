@@ -123,7 +123,7 @@ const StandupAdmin = () => {
                                 icon={<FaFire />}
                                 label="Blockers Reported"
                                 value={data.totalBlockers}
-                                sub={data.totalBlockers > 0 ? 'Needs attention' : 'No blockers 🎉'}
+                                sub={data.totalBlockers > 0 ? 'Needs attention' : 'No blockers'}
                                 color={data.totalBlockers > 0 ? 'red' : 'green'}
                             />
                             <SummaryCard

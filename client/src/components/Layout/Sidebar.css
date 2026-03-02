@@ -124,23 +124,20 @@
 }
 
 .sidebar-link:hover {
-    background: rgba(84, 84, 84, 0.2);
-    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--primary);
     transform: translateX(4px);
 }
 
 .sidebar-link.active {
     background: var(--primary);
-    color: #000;
-    box-shadow: 0 4px 12px rgba(19, 237, 12, 0.862);
-    font-weight: 600;
+    color: var(--primary-text);
+    font-weight: 700;
 }
 
 .sidebar-icon {
-    font-size: 1.1rem;
-    width: 1.4rem;
-    text-align: center;
-    flex-shrink: 0;
+    display: none;
+    /* Ensure icons are hidden as requested */
 }
 
 .sidebar-label {

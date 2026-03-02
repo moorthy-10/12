@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { scrumAPI } from '../../api/api';
+import ModernSuccessToast from '../Common/ModernSuccessToast';
+import AnimatedButton from '../Common/AnimatedButton';
+import Modal from '../Modal/Modal';
 import './ScrumCall.css';
 
 const ScrumCallModal = ({ isOpen, onClose }) => {
@@ -7,9 +10,7 @@ const ScrumCallModal = ({ isOpen, onClose }) => {
     const [meetLink, setMeetLink] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState(false);
-
-    if (!isOpen) return null;
+    const [showSuccess, setShowSuccess] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -17,12 +18,11 @@ const ScrumCallModal = ({ isOpen, onClose }) => {
         setError('');
         try {
             await scrumAPI.start({ title, meet_link: meetLink });
-            setSuccess(true);
+            setShowSuccess(true);
             setTimeout(() => {
-                setSuccess(false);
                 onClose();
                 setMeetLink('');
-            }, 2000);
+            }, 1000);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to start scrum call');
         } finally {
@@ -31,53 +31,52 @@ const ScrumCallModal = ({ isOpen, onClose }) => {
     };
 
     return (
-        <div className="scrum-modal-overlay">
-            <div className="scrum-modal">
-                <div className="scrum-modal-header">
-                    <h2>🚀 Start Scrum Call</h2>
-                    <button className="close-btn" onClick={onClose}>✕</button>
-                </div>
-
-                {success ? (
-                    <div className="scrum-success">
-                        <div className="success-icon">✅</div>
-                        <p>Scrum notification sent to your team!</p>
+        <>
+            <ModernSuccessToast
+                isVisible={showSuccess}
+                message="Scrum notification sent to your team!"
+                onClose={() => setShowSuccess(false)}
+            />
+            <Modal
+                isOpen={isOpen}
+                onClose={onClose}
+                title="Start Scrum Call"
+                footer={
+                    <>
+                        <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                        <AnimatedButton onClick={handleSubmit} className="btn-start btn btn-primary" disabled={loading}>
+                            {loading ? 'Starting...' : 'Go Live & Notify Team'}
+                        </AnimatedButton>
+                    </>
+                }
+            >
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label className="form-label">Meeting Title</label>
+                        <input
+                            type="text"
+                            className="form-input"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="e.g. Daily Standup"
+                            required
+                        />
                     </div>
-                ) : (
-                    <form onSubmit={handleSubmit}>
-                        <div className="form-group">
-                            <label>Meeting Title</label>
-                            <input
-                                type="text"
-                                value={title}
-                                onChange={(e) => setTitle(e.target.value)}
-                                placeholder="e.g. Daily Standup"
-                                required
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label>Google Meet / Zoom Link</label>
-                            <input
-                                type="url"
-                                value={meetLink}
-                                onChange={(e) => setMeetLink(e.target.value)}
-                                placeholder="https://meet.google.com/..."
-                                required
-                            />
-                        </div>
-
-                        {error && <div className="scrum-error">{error}</div>}
-
-                        <div className="scrum-modal-footer">
-                            <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
-                            <button type="submit" className="btn-start" disabled={loading}>
-                                {loading ? 'Starting...' : 'Go Live & Notify Team'}
-                            </button>
-                        </div>
-                    </form>
-                )}
-            </div>
-        </div>
+                    <div className="form-group">
+                        <label className="form-label">Google Meet / Zoom Link</label>
+                        <input
+                            type="url"
+                            className="form-input"
+                            value={meetLink}
+                            onChange={(e) => setMeetLink(e.target.value)}
+                            placeholder="https://meet.google.com/..."
+                            required
+                        />
+                    </div>
+                    {error && <div className="scrum-error" style={{ color: 'var(--danger)', marginBottom: '1rem' }}>{error}</div>}
+                </form>
+            </Modal>
+        </>
     );
 };
 

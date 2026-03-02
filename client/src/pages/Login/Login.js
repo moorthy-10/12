@@ -1,6 +1,7 @@
 import './Login.css';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
@@ -35,10 +36,20 @@ const Login = () => {
                 <div className="login-card">
                     <div className="login-header">
                         <div className="login-logo">
-                            <img
+                            <motion.img
                                 src="/black.png"
                                 alt="GenLab Logo"
                                 className="login-logo-image"
+                                animate={{
+                                    scale: [1, 1.05, 1],
+                                    opacity: [0.8, 1, 0.8]
+                                }}
+                                transition={{
+                                    duration: 3,
+                                    repeat: Infinity,
+                                    ease: "easeInOut"
+                                }}
+                                style={{ filter: 'drop-shadow(0 0 10px rgba(188, 240, 0, 0.4))' }}
                             />
                         </div>
                         <h1 className="login-title">Welcome Back</h1>

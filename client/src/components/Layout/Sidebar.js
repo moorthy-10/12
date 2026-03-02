@@ -1,6 +1,7 @@
 import './Sidebar.css';
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -45,10 +46,19 @@ const Sidebar = ({ isOpen, onClose }) => {
             <aside className={`sidebar${isOpen ? ' sidebar-open' : ''}`}>
                 <div className="sidebar-header">
                     <NavLink to="/dashboard" className="logo-link" onClick={onClose}>
-                        <img
+                        <motion.img
                             src="/genlab-logo.png"
                             alt="GenLab Logo"
                             className="logo-image"
+                            animate={{
+                                scale: [1, 1.1, 1],
+                            }}
+                            transition={{
+                                duration: 3,
+                                repeat: Infinity,
+                                ease: "easeInOut"
+                            }}
+                            style={{ filter: 'drop-shadow(0 0 8px rgba(188, 240, 0, 0.3))' }}
                         />
                     </NavLink>
                     {/* Close button visible on mobile */}

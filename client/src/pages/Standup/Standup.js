@@ -2,6 +2,8 @@ import './Standup.css';
 import React, { useState, useEffect, useCallback } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import { standupAPI } from '../../api/api';
+import AnimatedButton from '../../components/Common/AnimatedButton';
+import ModernSuccessToast from '../../components/Common/ModernSuccessToast';
 import {
     FaClipboardCheck, FaPlus, FaTrash, FaClock,
     FaExclamationTriangle, FaCheckCircle, FaTasks,
@@ -29,7 +31,7 @@ const Standup = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [showSuccess, setShowSuccess] = useState(false);
 
     /* form */
     const [yesterdayWork, setYesterdayWork] = useState('');
@@ -84,7 +86,7 @@ const Standup = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        setSuccess('');
+        setShowSuccess(false);
 
         // client-side validation
         if (!yesterdayWork.trim()) {
@@ -106,9 +108,9 @@ const Standup = () => {
                 })),
                 blockers: blockers.trim()
             };
-            const res = await standupAPI.submit(payload);
-            setSuccess(res.data.message || 'Standup submitted!');
-            setTodayStatus(res.data.standup);
+            await standupAPI.submit(payload);
+            setShowSuccess(true);
+            fetchToday();
             fetchPerf();
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to submit standup.');
@@ -129,6 +131,11 @@ const Standup = () => {
     return (
         <MainLayout title="Daily Standup">
             <div className="su-page">
+                <ModernSuccessToast
+                    isVisible={showSuccess}
+                    message="Standup submitted correctly"
+                    onClose={() => setShowSuccess(false)}
+                />
 
                 {/* ── Page header ── */}
                 <div className="su-header">
@@ -156,7 +163,6 @@ const Standup = () => {
                         ) : (
                             <form className="su-form" onSubmit={handleSubmit} noValidate>
                                 {error && <div className="su-alert su-alert-err">{error}</div>}
-                                {success && <div className="su-alert su-alert-ok">{success}</div>}
 
                                 {/* Yesterday */}
                                 <div className="su-field">
@@ -178,9 +184,9 @@ const Standup = () => {
                                 <div className="su-field">
                                     <div className="su-tasks-header">
                                         <label className="su-label">Today's Tasks</label>
-                                        <button type="button" className="su-add-task-btn" onClick={addTask}>
+                                        <AnimatedButton type="button" className="su-add-task-btn" onClick={addTask}>
                                             <FaPlus /> Add Task
-                                        </button>
+                                        </AnimatedButton>
                                     </div>
 
                                     <div className="su-tasks-list">
@@ -247,13 +253,13 @@ const Standup = () => {
                                     />
                                 </div>
 
-                                <button
+                                <AnimatedButton
                                     type="submit"
                                     className="su-submit-btn"
                                     disabled={submitting}
                                 >
                                     {submitting ? 'Submitting…' : 'Submit Standup'}
-                                </button>
+                                </AnimatedButton>
                             </form>
                         )}
                     </div>
@@ -331,7 +337,7 @@ const SubmittedCard = ({ standup }) => (
         <div className="su-submitted-header">
             <FaCheckCircle className="su-submitted-icon" />
             <div>
-                <h2 className="su-submitted-title">Standup Submitted ✓</h2>
+                <h2 className="su-submitted-title">Standup Submitted</h2>
                 <p className="su-submitted-date">
                     {new Date(standup.submittedAt).toLocaleTimeString('en-IN', {
                         hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata'

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authAPI } from '../../api/api';
+import ModernSuccessToast from '../../components/Common/ModernSuccessToast';
+import AnimatedButton from '../../components/Common/AnimatedButton';
 import './ChangePassword.css';
 
 const ChangePassword = () => {
@@ -11,7 +13,7 @@ const ChangePassword = () => {
         confirmPassword: ''
     });
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [showSuccess, setShowSuccess] = useState(false);
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
     const { updateUser } = useAuth();
@@ -23,7 +25,6 @@ const ChangePassword = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        setSuccess('');
 
         if (passwords.newPassword !== passwords.confirmPassword) {
             setError('Passwords do not match');
@@ -42,11 +43,11 @@ const ChangePassword = () => {
                 newPassword: passwords.newPassword
             });
             updateUser({ is_temp_password: false });
-            setSuccess('Password changed successfully! Redirecting to dashboard...');
+            setShowSuccess(true);
             setTimeout(() => {
                 navigate('/dashboard');
-                window.location.reload(); // Refresh to clear flags if needed
-            }, 2000);
+                window.location.reload();
+            }, 1500);
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to change password');
         } finally {
@@ -62,7 +63,11 @@ const ChangePassword = () => {
 
                 <form onSubmit={handleSubmit}>
                     {error && <div className="alert alert-danger">{error}</div>}
-                    {success && <div className="alert alert-success">{success}</div>}
+                    <ModernSuccessToast
+                        isVisible={showSuccess}
+                        message="Password changed successfully"
+                        onClose={() => setShowSuccess(false)}
+                    />
 
                     <div className="form-group">
                         <label>Current / Temporary Password</label>
@@ -97,9 +102,9 @@ const ChangePassword = () => {
                         />
                     </div>
 
-                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                    <AnimatedButton type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
                         {loading ? 'Processing...' : 'Change Password'}
-                    </button>
+                    </AnimatedButton>
                 </form>
             </div>
         </div>

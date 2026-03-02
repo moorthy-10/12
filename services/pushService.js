@@ -23,7 +23,7 @@ async function sendPushNotification(userId, title, body, data = {}) {
 
         // Determine channel and sound based on notification type
         const isCall = data.type === 'CALL_RINGING';
-        const channelId = isCall ? 'call_channel' : 'default_channel';
+        const channelId = isCall ? 'genlab_calls' : 'genlab_notifications';
         const soundName = isCall ? 'call_ringtone' : 'notification_sound';
 
         const message = {

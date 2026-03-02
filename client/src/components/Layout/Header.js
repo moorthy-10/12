@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import { searchAPI } from '../../api/api';
 import ScrumCallModal from '../Scrum/ScrumCallModal';
+import AnimatedButton from '../Common/AnimatedButton';
 
 const Header = ({ title, onMenuToggle }) => {
     const { logout, isAdmin, user, permissions } = useAuth();
@@ -125,21 +126,21 @@ const Header = ({ title, onMenuToggle }) => {
 
                 <div className="header-actions">
                     {permissions.includes('START_SCRUM') && (
-                        <button
+                        <AnimatedButton
                             className="btn btn-primary btn-sm scrum-trigger-btn"
                             onClick={() => setScrumOpen(true)}
                             title="Start a Scrum Call"
                         >
                             <span className="scrum-label">Scrum Call</span>
-                        </button>
+                        </AnimatedButton>
                     )}
-                    <button className="btn btn-secondary btn-sm" onClick={() => navigate('/change-password')} title="Change Password">
+                    <AnimatedButton className="btn btn-secondary btn-sm" onClick={() => navigate('/change-password')} title="Settings">
                         <span className="logout-label">Settings</span>
-                    </button>
+                    </AnimatedButton>
                     <NotificationBell isAdmin={isAdmin} />
-                    <button className="btn btn-secondary btn-sm" onClick={handleLogout}>
+                    <AnimatedButton className="btn btn-secondary btn-sm" onClick={handleLogout}>
                         <span className="logout-label">Logout</span>
-                    </button>
+                    </AnimatedButton>
 
                     <ScrumCallModal
                         isOpen={scrumOpen}

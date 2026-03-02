@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import MainLayout from '../../components/Layout/MainLayout';
 import { attendanceAPI, calendarAPI } from '../../api/api';
+import AnimatedButton from '../../components/Common/AnimatedButton';
+import ModernSuccessToast from '../../components/Common/ModernSuccessToast';
 import '../Employees/Employees.css';
 import './MyAttendance.css';
 
@@ -11,7 +13,8 @@ const MyAttendance = () => {
     const [actionLoading, setActionLoading] = useState(false);
     const [filters, setFilters] = useState({ start_date: '', end_date: '' });
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [successMsg, setSuccessMsg] = useState('');
     const [incompleteAttendance, setIncompleteAttendance] = useState(false);
 
 
@@ -48,12 +51,13 @@ const MyAttendance = () => {
 
     const handleClockIn = async () => {
         setError('');
-        setSuccess('');
+        setShowSuccess(false);
         setActionLoading(true);
 
         try {
             const response = await attendanceAPI.clockIn();
-            setSuccess(response.data.message);
+            setSuccessMsg(response.data.message);
+            setShowSuccess(true);
             setTodayRecord(response.data.record);
             fetchRecords(); // Refresh the list
         } catch (err) {
@@ -65,12 +69,13 @@ const MyAttendance = () => {
 
     const handleClockOut = async () => {
         setError('');
-        setSuccess('');
+        setShowSuccess(false);
         setActionLoading(true);
 
         try {
             const response = await attendanceAPI.clockOut();
-            setSuccess(response.data.message);
+            setSuccessMsg(response.data.message);
+            setShowSuccess(true);
             setTodayRecord(response.data.record);
             fetchRecords(); // Refresh the list
         } catch (err) {
@@ -123,6 +128,11 @@ const MyAttendance = () => {
     return (
         <MainLayout title="My Attendance">
             <div className="employees-page">
+                <ModernSuccessToast
+                    isVisible={showSuccess}
+                    message={successMsg}
+                    onClose={() => setShowSuccess(false)}
+                />
                 {/* Clock In/Out Card */}
                 <div className="clock-card">
                     <div className="clock-header">
@@ -148,10 +158,9 @@ const MyAttendance = () => {
                             <span>⚠️ Incomplete Attendance Record - Please check your previous clock-outs.</span>
                         </div>
                     )}
-
-                    {(error || success) && (
-                        <div className={`alert ${error ? 'alert-error' : 'alert-success'}`}>
-                            {error || success}
+                    {error && (
+                        <div className="alert alert-error">
+                            {error}
                         </div>
                     )}
 
@@ -190,22 +199,22 @@ const MyAttendance = () => {
 
                     <div className="clock-actions">
                         {canClockIn && (
-                            <button
+                            <AnimatedButton
                                 className="btn btn-primary btn-lg clock-btn"
                                 onClick={handleClockIn}
                                 disabled={actionLoading}
                             >
                                 {actionLoading ? '⏳ Processing...' : '🕐 Clock In'}
-                            </button>
+                            </AnimatedButton>
                         )}
                         {canClockOut && (
-                            <button
+                            <AnimatedButton
                                 className="btn btn-danger btn-lg clock-btn"
                                 onClick={handleClockOut}
                                 disabled={actionLoading}
                             >
                                 {actionLoading ? '⏳ Processing...' : '🕐 Clock Out'}
-                            </button>
+                            </AnimatedButton>
                         )}
                         {todayRecord && todayRecord.check_out_time && (
                             <div className="completed-message">

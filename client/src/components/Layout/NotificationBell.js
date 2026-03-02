@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../context/NotificationProvider';
-import { FaBell } from 'react-icons/fa';
 import './NotificationBell.css';
 
 // Map notification type → route to navigate to when clicked
@@ -17,13 +16,6 @@ const ADMIN_ROUTES = {
     leave: '/leaves',
     chat: '/groups',
     attendance: '/attendance',
-};
-
-const TYPE_ICONS = {
-    task: '📋',
-    leave: '📅',
-    chat: '💬',
-    attendance: '⏰',
 };
 
 function timeAgo(dateStr) {
@@ -74,10 +66,11 @@ const NotificationBell = ({ isAdmin }) => {
                 onClick={() => setOpen(o => !o)}
                 aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
                 title="Notifications"
+                style={{ fontSize: '0.8125rem', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--gray-600)' }}
             >
-                <FaBell className="notif-bell-icon" />
+                NOTIFS
                 {unreadCount > 0 && (
-                    <span className="notif-badge">
+                    <span className="notif-badge" style={{ position: 'relative', top: 'auto', right: 'auto', marginLeft: '6px' }}>
                         {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                 )}
@@ -117,9 +110,6 @@ const NotificationBell = ({ isAdmin }) => {
                                 className={`notif-item ${!notif.is_read ? 'unread' : ''}`}
                                 onClick={() => handleNotifClick(notif)}
                             >
-                                <div className="notif-item-icon">
-                                    <FaBell />
-                                </div>
                                 <div className="notif-item-body">
                                     <div className="notif-item-title">{notif.title}</div>
                                     <div className="notif-item-msg">{notif.message}</div>

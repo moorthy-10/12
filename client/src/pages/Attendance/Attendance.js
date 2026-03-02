@@ -3,6 +3,8 @@ import MainLayout from '../../components/Layout/MainLayout';
 import Modal from '../../components/Modal/Modal';
 import { attendanceAPI, userAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import ModernSuccessToast from '../../components/Common/ModernSuccessToast';
+import AnimatedButton from '../../components/Common/AnimatedButton';
 import '../Employees/Employees.css';
 
 const Attendance = () => {
@@ -14,6 +16,7 @@ const Attendance = () => {
     const [selectedRecord, setSelectedRecord] = useState(null);
     const [sortKey, setSortKey] = useState('date');
     const [sortDir, setSortDir] = useState('desc');
+    const [showSuccess, setShowSuccess] = useState(false);
 
     // Export state
     const now = new Date();
@@ -201,13 +204,19 @@ const Attendance = () => {
                             >
                                 {exporting ? '⏳...' : '⬇️ Excel'}
                             </button>
-                            <button className="btn btn-primary" onClick={handleMarkAttendance} style={{ background: '#10b981', padding: '0.6rem 1rem' }}>
-                                ➕ Mark
-                            </button>
+                            <AnimatedButton className="btn btn-primary" onClick={handleMarkAttendance} style={{ background: '#10b981', padding: '0.6rem 1rem' }}>
+                                Mark
+                            </AnimatedButton>
                         </div>
                     </div>
                     {exportError && <div style={{ color: '#fb7185', fontSize: '0.8rem', marginTop: '0.5rem' }}>⚠️ {exportError}</div>}
                 </div>
+
+                <ModernSuccessToast
+                    isVisible={showSuccess}
+                    message="Attendance record updated successfully"
+                    onClose={() => setShowSuccess(false)}
+                />
 
                 {/* ── Attendance Records Table ────────────────────────────── */}
                 <div className="card">
@@ -277,7 +286,12 @@ const Attendance = () => {
                     <AttendanceModal
                         record={selectedRecord}
                         onClose={() => { setShowModal(false); setSelectedRecord(null); }}
-                        onSuccess={() => { handleUnifiedReport(false); setShowModal(false); setSelectedRecord(null); }}
+                        onSuccess={() => {
+                            handleUnifiedReport(false);
+                            setShowModal(false);
+                            setSelectedRecord(null);
+                            setShowSuccess(true);
+                        }}
                     />
                 )}
             </div>
@@ -347,7 +361,7 @@ const AttendanceModal = ({ record, onClose, onSuccess }) => {
             footer={
                 <>
                     <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-                    <button className="btn btn-primary" onClick={handleSubmit} disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>
+                    <AnimatedButton className="btn btn-primary" onClick={handleSubmit} disabled={loading}>{loading ? 'Saving...' : 'Save'}</AnimatedButton>
                 </>
             }
         >
