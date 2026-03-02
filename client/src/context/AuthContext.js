@@ -35,13 +35,19 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     };
 
+    const updateUser = (updatedUser) => {
+        const newUser = { ...user, ...updatedUser };
+        localStorage.setItem('user', JSON.stringify(newUser));
+        setUser(newUser);
+    };
+
     const login = async (credentials) => {
         const response = await authAPI.login(credentials);
-        const { token, refreshToken, user } = response.data;
+        const { token, refreshToken, user: userData } = response.data;
         localStorage.setItem('token', token);
         if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
-        localStorage.setItem('user', JSON.stringify(user));
-        setUser(user);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
         return response;
     };
 
@@ -57,6 +63,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         logout,
+        updateUser,
         isAuthenticated: !!user,
         permissions: user?.permissions || [],
         isAdmin: user?.role === 'admin' ||

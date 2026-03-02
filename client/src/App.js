@@ -45,7 +45,12 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   }
 
   // Issue 3: Redirect to /change-password if temp password
-  const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+  let storedUser = {};
+  try {
+    storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+  } catch (e) {
+    console.error('Failed to parse user from local storage:', e);
+  }
   const requireChange = storedUser.is_temp_password || user?.is_temp_password;
 
   if (requireChange && location !== '/change-password') {

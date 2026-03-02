@@ -93,17 +93,13 @@ const Dashboard = () => {
         <MainLayout title="Dashboard">
             {incompleteAttendance && (
                 <div className="alert alert-warning" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <FaExclamationTriangle />
-                    <span>⚠️ Incomplete Attendance Record - Please check your previous clock-outs.</span>
+                    <span>Incomplete Attendance Record - Please check your previous clock-outs.</span>
                 </div>
             )}
 
             {permissions.includes('START_SCRUM') && (
                 <div className="scrum-dashboard-action" style={{ marginBottom: '1.5rem', background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', padding: '1.5rem', borderRadius: '16px', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.3)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.75rem', borderRadius: '12px', fontSize: '1.5rem' }}>
-                            <FaRocket />
-                        </div>
                         <div>
                             <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>Ready for a sync?</h3>
                             <p style={{ margin: '0.25rem 0 0', opacity: 0.9, fontSize: '0.9rem' }}>Start a scrum call and notify your entire team instantly.</p>
@@ -120,7 +116,7 @@ const Dashboard = () => {
 
             {activeScrums.length > 0 && (
                 <div className="active-scrums-section" style={{ marginBottom: '2rem' }}>
-                    <h3 style={{ fontSize: '0.9rem', color: 'var(--gray-500)', marginBottom: '0.75rem', fontWeight: 600 }}>📡 LIVE SCRUM CALLS</h3>
+                    <h3 style={{ fontSize: '0.9rem', color: 'var(--gray-500)', marginBottom: '0.75rem', fontWeight: 600 }}>LIVE SCRUM CALLS</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
                         {activeScrums.map(scrum => (
                             <ActiveScrumCard key={scrum._id || scrum.sessionId} scrum={scrum} />

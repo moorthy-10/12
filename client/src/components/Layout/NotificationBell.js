@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../context/NotificationProvider';
+import { FaBell } from 'react-icons/fa';
 import './NotificationBell.css';
 
 // Map notification type → route to navigate to when clicked
@@ -74,7 +75,7 @@ const NotificationBell = ({ isAdmin }) => {
                 aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
                 title="Notifications"
             >
-                <span className="notif-bell-icon">🔔</span>
+                <FaBell className="notif-bell-icon" />
                 {unreadCount > 0 && (
                     <span className="notif-badge">
                         {unreadCount > 99 ? '99+' : unreadCount}
@@ -106,7 +107,6 @@ const NotificationBell = ({ isAdmin }) => {
 
                         {!loading && visibleNotifs.length === 0 && (
                             <div className="notif-empty">
-                                <span style={{ fontSize: '2rem' }}>🔕</span>
                                 <p>No notifications yet</p>
                             </div>
                         )}
@@ -118,7 +118,7 @@ const NotificationBell = ({ isAdmin }) => {
                                 onClick={() => handleNotifClick(notif)}
                             >
                                 <div className="notif-item-icon">
-                                    {TYPE_ICONS[notif.type] || '🔔'}
+                                    <FaBell />
                                 </div>
                                 <div className="notif-item-body">
                                     <div className="notif-item-title">{notif.title}</div>

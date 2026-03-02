@@ -66,7 +66,7 @@ router.post('/create-user', authenticateToken, isAdmin, [
             reports_to: reports_to === "" ? null : (reports_to || null),
             employment_type: employment_type || 'fulltime',
             status: 'active',
-            forcePasswordChange: true
+            is_temp_password: true
         });
 
         console.log(`✅ User created successfully in database - ID: ${created._id}`);
@@ -149,7 +149,7 @@ router.post('/reset-password/:id', authenticateToken, isAdmin, async (req, res) 
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         user.password = hashedPassword;
-        user.forcePasswordChange = true;
+        user.is_temp_password = true;
         await user.save();
 
         console.log(`🔑 Password reset by admin for user: ${user.email}`);

@@ -84,7 +84,8 @@ router.post('/login', [
                 roles: user.roles || [],
                 permissions: user.permissions || [],
                 department: user.department,
-                position: user.position
+                position: user.position,
+                is_temp_password: user.is_temp_password
             }
         });
     } catch (error) {
@@ -126,7 +127,7 @@ router.post('/refresh', async (req, res) => {
 router.get('/me', authenticateToken, async (req, res) => {
     try {
         const user = await User.findById(req.user.id)
-            .select('name email role roles permissions department position phone status');
+            .select('name email role roles permissions department position phone status is_temp_password');
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
@@ -173,6 +174,7 @@ router.put('/change-password', authenticateToken, [
 
         user.password = await bcrypt.hash(newPassword, 10);
         user.is_temp_password = false; // Issue 3
+        user.forcePasswordChange = false; // Legacy cleanup
         await user.save();
 
         res.json({ success: true, message: 'Password updated successfully' });

@@ -84,7 +84,6 @@ const Header = ({ title, onMenuToggle }) => {
 
                     <div className="header-search-container" ref={searchRef}>
                         <div className="search-input-wrapper">
-                            <span className="search-icon">🔍</span>
                             <input
                                 type="text"
                                 className="header-search-input"
@@ -131,12 +130,15 @@ const Header = ({ title, onMenuToggle }) => {
                             onClick={() => setScrumOpen(true)}
                             title="Start a Scrum Call"
                         >
-                            🚀 <span className="scrum-label">Scrum Call</span>
+                            <span className="scrum-label">Scrum Call</span>
                         </button>
                     )}
+                    <button className="btn btn-secondary btn-sm" onClick={() => navigate('/change-password')} title="Change Password">
+                        <span className="logout-label">Settings</span>
+                    </button>
                     <NotificationBell isAdmin={isAdmin} />
                     <button className="btn btn-secondary btn-sm" onClick={handleLogout}>
-                        🚪 <span className="logout-label">Logout</span>
+                        <span className="logout-label">Logout</span>
                     </button>
 
                     <ScrumCallModal

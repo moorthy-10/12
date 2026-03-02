@@ -42,3 +42,22 @@
         max-width: 1600px;
     }
 }
+
+/* ── Page Transitions ────────────────────────────────────────────────────── */
+@keyframes fadeSlideUp {
+    0% {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.page-transition-wrapper {
+    animation: fadeSlideUp 0.45s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    width: 100%;
+    will-change: transform, opacity;
+}

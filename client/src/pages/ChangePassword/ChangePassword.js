@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { authAPI } from '../../api/api';
 import './ChangePassword.css';
 
@@ -13,6 +14,7 @@ const ChangePassword = () => {
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+    const { updateUser } = useAuth();
 
     const handleChange = (e) => {
         setPasswords({ ...passwords, [e.target.name]: e.target.value });
@@ -39,6 +41,7 @@ const ChangePassword = () => {
                 currentPassword: passwords.currentPassword,
                 newPassword: passwords.newPassword
             });
+            updateUser({ is_temp_password: false });
             setSuccess('Password changed successfully! Redirecting to dashboard...');
             setTimeout(() => {
                 navigate('/dashboard');

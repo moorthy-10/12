@@ -1,10 +1,12 @@
 import './MainLayout.css';
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
 const MainLayout = ({ title, children }) => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const location = useLocation();
 
     return (
         <div className="main-layout">
@@ -18,7 +20,9 @@ const MainLayout = ({ title, children }) => {
                     onMenuToggle={() => setSidebarOpen(prev => !prev)}
                 />
                 <main className="page-content">
-                    {children}
+                    <div key={location.pathname} className="page-transition-wrapper">
+                        {children}
+                    </div>
                 </main>
             </div>
         </div>

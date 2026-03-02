@@ -14,6 +14,11 @@ const compression = require("compression");
 app.use(compression());
 
 // Middleware
+app.use((req, res, next) => {
+  console.log(`[DEBUG] ${req.method} ${req.url}`);
+  next();
+});
+
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
