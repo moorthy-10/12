@@ -284,7 +284,7 @@ const PushManager = () => {
       if (!jwt) return;
 
       try {
-        await fetch('https://one2-mti6.onrender.com/api/users/fcm-token', {
+        await fetch(`${process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5000'}/api/users/fcm-token`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

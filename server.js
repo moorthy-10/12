@@ -22,6 +22,8 @@ app.use((req, res, next) => {
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
+  "http://localhost",
+  "capacitor://localhost",
   "https://moorthyvk.online",
   "https://www.moorthyvk.online",
   "https://one2-mti6.onrender.com"

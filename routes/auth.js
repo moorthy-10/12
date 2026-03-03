@@ -11,7 +11,7 @@ const { getPermissionsForRoles } = require('../config/permissions');
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post('/login', [
-    body('email').trim().toLowerCase(), // Issue 4: Only trim and lowercase
+    body('email').trim().toLowerCase(),
     body('password').notEmpty()
 ], async (req, res) => {
     const errors = validationResult(req);
@@ -19,10 +19,14 @@ router.post('/login', [
         return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+
+    // Explicitly sanitize email for robust matching (especially for mobile keyboards)
+    if (email) {
+        email = email.trim().toLowerCase();
+    }
 
     try {
-        // Issue 4: Exact match query
         const user = await User.findOne({ email }).select('+password');
         if (!user) {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
@@ -44,13 +48,10 @@ router.post('/login', [
         }
         const freshPerms = getPermissionsForRoles(combinedRoles);
 
-        // If permissions field is missing or different, update and save
         if (!user.permissions || user.permissions.length !== freshPerms.length) {
             user.permissions = freshPerms;
-            // We'll save with refresh token below
         }
 
-        // Issue 2: Token Expiry Handling
         const payload = {
             id: user._id.toString(),
             email: user.email,
@@ -59,14 +60,13 @@ router.post('/login', [
             permissions: user.permissions || []
         };
 
-        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' }); // Short expiry (15m)
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '15m' });
         const refreshToken = jwt.sign(
             { id: user._id.toString() },
             process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET,
-            { expiresIn: '7d' } // Longer expiry (7d)
+            { expiresIn: '7d' }
         );
 
-        // Store refresh token
         user.refresh_token = refreshToken;
         await user.save();
 
@@ -75,7 +75,7 @@ router.post('/login', [
             message: 'Login successful',
             token,
             refreshToken,
-            requirePasswordChange: user.is_temp_password === true, // Issue 3
+            requirePasswordChange: user.is_temp_password === true,
             user: {
                 id: user._id.toString(),
                 name: user.name,
@@ -132,7 +132,6 @@ router.get('/me', authenticateToken, async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        // ── Fresh Permission Sync on /me ─────────────────────────────────────
         const combinedRoles = [...(user.roles || [])];
         if (user.role && !combinedRoles.includes(user.role)) {
             combinedRoles.push(user.role);
@@ -173,8 +172,8 @@ router.put('/change-password', authenticateToken, [
         }
 
         user.password = await bcrypt.hash(newPassword, 10);
-        user.is_temp_password = false; // Issue 3
-        user.forcePasswordChange = false; // Legacy cleanup
+        user.is_temp_password = false;
+        user.forcePasswordChange = false;
         await user.save();
 
         res.json({ success: true, message: 'Password updated successfully' });
