@@ -31,11 +31,13 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // allow non-browser tools
-    if (allowedOrigins.includes(origin)) {
+    if (!origin) return callback(null, true);
+    console.log(`[DEBUG] CORS Origin detected: ${origin}`);
+    if (allowedOrigins.includes(origin) || origin.includes('moorthyvk.online') || origin.includes('onrender.com')) {
       return callback(null, true);
     } else {
-      return callback(new Error("Not allowed by CORS"));
+      console.warn(`[WARNING] CORS Origin rejected: ${origin}`);
+      return callback(null, true); // Temporarily allow all to debug 405/CORS
     }
   },
   credentials: true
@@ -84,9 +86,21 @@ app.use('/api/search', searchRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/scrum', scrumRoutes);
 
-// Health check
+// Health checks
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'GenLab API is running' });
+  res.json({ status: 'ok', message: 'GenLab API is running (GET)', env: process.env.NODE_ENV });
+});
+
+app.post('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'GenLab API is running (POST)' });
+});
+
+app.get('/api/check-origin', (req, res) => {
+  res.json({
+    origin: req.headers.origin || 'No origin',
+    host: req.headers.host,
+    xforwardedFor: req.headers['x-forwarded-for']
+  });
 });
 
 // Serve static assets in production
