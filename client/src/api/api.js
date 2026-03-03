@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+const API_URL = (typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+    !window.location.protocol.startsWith('capacitor'))
     ? 'http://localhost:5000/api'
     : 'https://one2-mti6.onrender.com/api';
 
