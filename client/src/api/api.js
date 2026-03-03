@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const API_URL = process.env.NODE_ENV === 'production'
-    ? 'https://moorthyvk.online/api'
+    ? 'https://one2-mti6.onrender.com/api'
     : 'http://localhost:5000/api';
 
 const api = axios.create({
@@ -10,14 +10,6 @@ const api = axios.create({
         'Content-Type': 'application/json'
     }
 });
-
-// Added for OBJECTIVE: Resolve 405 Method Not Allowed
-api.interceptors.request.use(config => {
-    if (process.env.NODE_ENV === 'development') {
-        console.log(`[DEBUG] ${config.method.toUpperCase()} Request to: ${config.baseURL}${config.url}`);
-    }
-    return config;
-}, error => Promise.reject(error));
 
 // Add token to requests if available
 api.interceptors.request.use(
@@ -35,16 +27,8 @@ api.interceptors.request.use(
 
 // Handle response errors
 api.interceptors.response.use(
-    (response) => {
-        if (process.env.NODE_ENV === 'development') {
-            console.log(`[DEBUG] Response Status: ${response.status} from ${response.config.url}`);
-        }
-        return response;
-    },
+    (response) => response,
     async (error) => {
-        if (process.env.NODE_ENV === 'development') {
-            console.log(`[DEBUG] Error Status: ${error.response?.status} from ${error.config?.url}`);
-        }
         const originalRequest = error.config;
 
         if (error.response?.status === 401 && !originalRequest._retry) {
@@ -225,4 +209,3 @@ export const scrumAPI = {
 };
 
 export default api;
-
