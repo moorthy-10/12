@@ -20,6 +20,7 @@ router.post('/login', [
     }
 
     let { email, password } = req.body;
+    console.log("Login request body:", req.body);
 
     // Explicitly sanitize email for robust matching (especially for mobile keyboards)
     if (email) {

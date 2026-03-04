@@ -21,27 +21,17 @@ app.use((req, res, next) => {
 
 const allowedOrigins = [
   "http://localhost:3000",
-  "http://127.0.0.1:3000",
-  "http://localhost",
-  "capacitor://localhost",
-  "https://moorthyvk.online",
-  "https://www.moorthyvk.online",
-  "https://one2-mti6.onrender.com"
+  "https://moorthyvk.online"
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    console.log(`[DEBUG] CORS Origin detected: ${origin}`);
-    if (allowedOrigins.includes(origin) || origin.includes('moorthyvk.online') || origin.includes('onrender.com')) {
-      return callback(null, true);
-    } else {
-      console.warn(`[WARNING] CORS Origin rejected: ${origin}`);
-      return callback(null, true); // Temporarily allow all to debug 405/CORS
-    }
-  },
+  origin: allowedOrigins,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
+
+app.options("*", cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -102,14 +92,6 @@ app.get('/api/check-origin', (req, res) => {
     xforwardedFor: req.headers['x-forwarded-for']
   });
 });
-
-// Serve static assets in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'client/build')));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
-  });
-}
 
 // Error handling middleware
 app.use((err, req, res, next) => {

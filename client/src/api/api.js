@@ -1,10 +1,6 @@
 import axios from 'axios';
 
-const API_URL = (typeof window !== 'undefined' &&
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
-    !window.location.protocol.startsWith('capacitor'))
-    ? 'http://localhost:5000/api'
-    : 'https://one2-mti6.onrender.com/api';
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 const api = axios.create({
     baseURL: API_URL,
